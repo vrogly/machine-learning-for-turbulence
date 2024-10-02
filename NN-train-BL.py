@@ -29,7 +29,7 @@ plt.close('all')
 init_time = time.time()
 
 # load DNS data
-vel_DNS=np.genfromtxt("vel_11000_DNS_no-text.dat", dtype=None,comments="%")
+vel_DNS=np.genfromtxt("datasets/vel_11000_DNS.dat", dtype=None,comments="%")
 
 # % Wall-normal profiles:
 # y/\delta_{99}       y+          U+          urms+       vrms+       wrms+       uv+         prms+       pu+         pv+         S(u)        F(u)        dU+/dy+     V+
@@ -56,7 +56,7 @@ k_DNS  = 0.5*(uu_DNS+vv_DNS+ww_DNS)
 #eps_DNS = -DNS_RSTE[:,6]*3/2  #multiply by 3/2 to get eps from eps_11
 #yplus_DNS_uu = DNS_RSTE[:,1]
 
-DNS_RSTE = np.genfromtxt("bud_11000.prof",comments="%")
+DNS_RSTE = np.genfromtxt("datasets/bud_11000.prof",comments="%")
 
 eps_DNS = -DNS_RSTE[:,4]
 yplus_DNS_uu = yplus_DNS
@@ -213,20 +213,15 @@ tau_DNS_test = tau_DNS[index_test]
 
 
 # Set up hyperparameters
+
+# Suggestions : 1e-1, 2e-1, 5e-1, 9e-1, 1e1 
 learning_rate = 1e-1
-learning_rate = 5.e-1  
-#learning_rate = 10e-1
-#learning_rate = 0.9
-#learning_rate = 0.1
-#learning_rate = 0.2
-#learning_rate = 0.2
+
+# Suggestions : 3, 5, 30
 my_batch_size = 5
-#my_batch_size = 30
-#my_batch_size = 5
-#my_batch_size = 3
-epochs = 10000
-epochs = 40000
-#epochs = 30
+
+# Suggestions : 3e1, 1e4, 4e4
+epochs = 1000
 
 # convert the numpy arrays to PyTorch tensors with float32 data type
 X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
