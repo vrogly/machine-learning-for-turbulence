@@ -75,13 +75,13 @@ eps_DNS[0]=eps_DNS[1]
 
 
 # choose values for 30 < y+ < 1000
-#index_choose=np.nonzero((yplus_DNS > 30 )  & (yplus_DNS< 1000 ))
-index_choose=np.nonzero((yplus_DNS > 9 )  & (yplus_DNS< 2200 ))
+index_choose=np.nonzero((yplus_DNS > 30 )  & (yplus_DNS< 1000 ))
 
-# set a min on dudy
+# Originally this one
+#index_choose=np.nonzero((yplus_DNS > 9 )  & (yplus_DNS< 2200 ))
+
 # set a min on dudy
 dudy_DNS = np.maximum(dudy_DNS,4e-4)
-
 
 uv_DNS    =  uv_DNS[index_choose]
 uu_DNS    =  uu_DNS[index_choose]
@@ -118,11 +118,13 @@ c_0_DNS=-6*a33_DNS/tau_DNS**2/dudy_DNS**2
 
 c = np.array([c_0_DNS,c_2_DNS])
 
+#### EVERYTHING TO THIS POINT HAS JUST CROPPED INITIAL DATASET TO CERTAIN y+ VALUES AND CALCULATED c:s ####
+
 
 ########################## 2*a11_DNS+a33_DNS
 fig1,ax1 = plt.subplots()
 plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.scatter(2*a11_DNS+a33_DNS,yplus_DNS, marker="o", s=10, c="red", label="Neural Network")
+ax1.scatter(2*a11_DNS+a33_DNS,yplus_DNS, marker="o", s=10, c="red", label="Cropped initial dataset")
 plt.xlabel("$2a_{11}+a_{33}$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
@@ -136,8 +138,8 @@ prod_DNS_1 = -uv_DNS*dudy_DNS
 fig1,ax1 = plt.subplots()
 plt.subplots_adjust(left=0.20,bottom=0.20)
 #ax1.plot(yplus_DNS_uu,prod_DNS, 'b-', label="prod")
-ax1.plot(yplus_DNS,prod_DNS_1, 'b-', label="$-\overline{u'v'} \partial U/\partial y$")
-ax1.plot(yplus_DNS,eps_DNS,'r--', label="diss")
+ax1.plot(prod_DNS_1,yplus_DNS, 'b-', label="$-\overline{u'v'} \partial U/\partial y$ Cropped Original")
+ax1.plot(eps_DNS,yplus_DNS,'r--', label="dissipation")
 plt.axis([0,200,0,0.3])
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
@@ -173,12 +175,12 @@ X[:,1] = scaler_dudy.fit_transform(dudy_DNS_inv_scaled)[:,0]
 # test_size=0.2 means we reserve 20% of the data for validation
 # random_state=42 is a fixed seed for the random number generator, ensuring reproducibility
 
-random_state = randrange(100)
+# random_state = randrange(100)
 
 indices = np.arange(len(X))
 X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(X, y, indices,test_size=0.2,shuffle=True,random_state=42)
 
-# create text index 
+# create test index 
 #index= np.arange(0,len(X), dtype=int)
 ## pick every 5th elements 
 #index_test=index[::5]
@@ -191,8 +193,6 @@ X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(X, 
 #
 #X_train = X[index_train]
 #y_train = y[index_train]
-
-
 
 dudy_DNS_train = dudy_DNS[index_train]
 dudy_DNS_inv_train = dudy_DNS_inv[index_train]
@@ -261,15 +261,13 @@ print ('X_test[5]',X_test[k])
 print ('test_k_from_dataset',test_k_from_dataset)
 print ('y_test[5]',y_test[k])
 
-# In[4]:
-
 ########################## check
 fig1,ax1 = plt.subplots()
 plt.subplots_adjust(left=0.20,bottom=0.20)
 
 # OBS
+# Suggestions : 5, len(X_train)
 Nx=len(X_train)
-Nx=5
 
 for k in range(0,Nx):
 # train_k = next(itertools.islice(train_loader, k, None))
