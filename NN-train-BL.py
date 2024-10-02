@@ -11,6 +11,7 @@ import numpy as np
 import torch 
 import sys 
 import time
+import os
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
@@ -33,6 +34,10 @@ vel_DNS=np.genfromtxt("datasets/vel_11000_DNS.dat", dtype=None,comments="%")
 
 # % Wall-normal profiles:
 # y/\delta_{99}       y+          U+          urms+       vrms+       wrms+       uv+         prms+       pu+         pv+         S(u)        F(u)        dU+/dy+     V+
+
+# Add unique run ID here
+savedir = "renders/run1/"
+os.makedirs(os.path.dirname(savedir), exist_ok=True)
 
 
 y_DNS=vel_DNS[:,0]
@@ -121,7 +126,7 @@ ax1.scatter(2*a11_DNS+a33_DNS,yplus_DNS, marker="o", s=10, c="red", label="Neura
 plt.xlabel("$2a_{11}+a_{33}$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/2a11_DNS+a33_DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}2a11_DNS+a33_DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 
 prod_DNS_1 = -uv_DNS*dudy_DNS
@@ -136,7 +141,7 @@ ax1.plot(yplus_DNS,eps_DNS,'r--', label="diss")
 plt.axis([0,200,0,0.3])
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/prod-diss-DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
+plt.savefig(f'{savedir}prod-diss-DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
 
 
 
@@ -221,7 +226,7 @@ learning_rate = 1e-1
 my_batch_size = 5
 
 # Suggestions : 3e1, 1e4, 4e4
-epochs = 1000
+epochs = 100
 
 # convert the numpy arrays to PyTorch tensors with float32 data type
 X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
@@ -261,8 +266,11 @@ print ('y_test[5]',y_test[k])
 ########################## check
 fig1,ax1 = plt.subplots()
 plt.subplots_adjust(left=0.20,bottom=0.20)
+
+# OBS
 Nx=len(X_train)
 Nx=5
+
 for k in range(0,Nx):
 # train_k = next(itertools.islice(train_loader, k, None))
   train_k = train_dataset[k]
@@ -279,7 +287,7 @@ for k in range(0,Nx):
 plt.xlabel("$c_0$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/c0-and-cNN-train-and-test-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
+plt.savefig(f'{savedir}c0-and-cNN-train-and-test-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
 
 # Let's set up a neural network:
 
@@ -463,12 +471,12 @@ c2_std=np.std(c2-c2_DNS_test)/(np.mean(c2.flatten()**2))**0.5
 print('\nc0_error_std',c0_std)
 print('\nc2_error_std',c2_std)
 
-np.savetxt('renders/error-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.txt', [test_loss,c0_std,c2_std] )
+np.savetxt(f'{savedir}error-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.txt', [test_loss,c0_std,c2_std] )
 
-filename = 'renders/model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.pth'
+filename = f'{savedir}model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.pth'
 torch.save(neural_net, filename)
-dump(scaler_dudy2,'renders/model-channel-DNS-dudy-and-dudy2_scaler-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
-dump(scaler_dudy,'renders/model-channel-DNS-dudy-and-dudy2_scaler-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
+dump(scaler_dudy2,f'{savedir}model-channel-DNS-dudy-and-dudy2_scaler-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
+dump(scaler_dudy,f'{savedir}model-channel-DNS-dudy-and-dudy2_scaler-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
 
 dudy2_max = np.max(dudy_squared_DNS)
 dudy2_min = np.min(dudy_squared_DNS)
@@ -479,7 +487,7 @@ c0_max = np.max(c0)
 c2_min = np.min(c2)
 c2_max = np.max(c2)
 
-np.savetxt('renders/min-max-model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.6-scale-with-k-eps-units-BL.txt', [dudy2_min, dudy2_max, dudy_min, dudy_max, c0_min, c0_max, c2_min, c2_max] )
+np.savetxt(f'{savedir}min-max-model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.6-scale-with-k-eps-units-BL.txt', [dudy2_min, dudy2_max, dudy_min, dudy_max, c0_min, c0_max, c2_min, c2_max] )
 
 
 
@@ -498,7 +506,7 @@ for k in range(0,len(X_test)):
 plt.xlabel("$c_0$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/c0-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}c0-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 
 ########################## c0 v dudy**2
@@ -515,7 +523,7 @@ for k in range(0,len(X_test)):
 plt.xlabel("$c_0$")
 plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/c0-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}c0-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 
 ########################## c2 v dudy**2
@@ -531,7 +539,7 @@ for k in range(0,len(X_test)):
 plt.xlabel("$c_2$")
 plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/c2-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}c2-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 
 ########################## c2
@@ -551,7 +559,7 @@ for k in range(0,len(X_test)):
 plt.xlabel("$c_2$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('/renders/c2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}c2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 
 
@@ -564,7 +572,7 @@ ax1.plot(uu_DNS,yplus_DNS,'b-', label="Target")
 plt.xlabel("$\overline{u'u'}^+$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/uu-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}uu-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 
 ########################## vv
@@ -575,7 +583,7 @@ ax1.plot(vv_DNS,yplus_DNS,'b-', label="Target")
 plt.xlabel("$\overline{v'v'}^+$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/vv-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}vv-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 ########################## ww
 fig1,ax1 = plt.subplots()
@@ -585,7 +593,7 @@ ax1.plot(ww_DNS,yplus_DNS,'b-', label="Target")
 plt.xlabel("$\overline{w'w'}^+$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/ww-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}ww-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 ########################## time scales
 fig1,ax1 = plt.subplots()
@@ -595,7 +603,7 @@ ax1.plot(1/dudy_DNS_org,yplus_DNS,'b-', label=r"$\left(\partial U/\partial y\rig
 plt.xlabel("time scsles")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
-plt.savefig('renders/time-scales-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}time-scales-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 ########################## time scales
 fig1,ax1 = plt.subplots()
@@ -603,7 +611,7 @@ plt.subplots_adjust(left=0.20,bottom=0.20)
 ax1.plot(dudy_DNS_org*dudy_DNS_org,yplus_DNS,'b-')
 plt.xlabel(r"$\left(\partial U/\partial y\right)^{-1} dudy$")
 plt.ylabel("$y^+$")
-plt.savefig('renders/dudy-times-dudy-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+plt.savefig(f'{savedir}dudy-times-dudy-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 print(f"{'total time: '}{time.time()-init_time:.2e}")
 
