@@ -310,10 +310,10 @@ class ThePredictionMachine(nn.Module):
         self.hidden1 = nn.Linear(50, 50)
         self.hidden2 = nn.Linear(50, 2)
 
-#       self.input   = nn.Linear(2, 50)
-#       self.hidden1 = nn.Linear(50, 50)
-#       self.hidden2 = nn.Linear(50, 25)
-#       self.hidden3 = nn.Linear(25, 2)
+#        self.input   = nn.Linear(2, 50)
+#        self.hidden1 = nn.Linear(50, 50)
+#        self.hidden2 = nn.Linear(50, 25)
+#        self.hidden3 = nn.Linear(25, 2)
 
 #       self.input   = nn.Linear(2, 50)
 #       self.hidden1 = nn.Linear(50, 50)
@@ -337,15 +337,15 @@ class ThePredictionMachine(nn.Module):
 #       self.hidden6 = nn.Linear(25, 2)
 
 
-#       self.input   = nn.Linear(2, 50)
-#       self.hidden1 = nn.Linear(50, 50)
-#       self.hidden2 = nn.Linear(50, 50)
-#       self.hidden3 = nn.Linear(50, 50)
-#       self.hidden4 = nn.Linear(50, 50)
-#       self.hidden5 = nn.Linear(50, 50)
-#       self.hidden6 = nn.Linear(50, 50)
-#       self.hidden7 = nn.Linear(50, 25)
-#       self.hidden8 = nn.Linear(25, 2)
+        #self.input   = nn.Linear(2, 50)
+        #self.hidden1 = nn.Linear(50, 50)
+        #self.hidden2 = nn.Linear(50, 50)
+        #self.hidden3 = nn.Linear(50, 50)
+        #self.hidden4 = nn.Linear(50, 50)
+        #self.hidden5 = nn.Linear(50, 50)
+        #self.hidden6 = nn.Linear(50, 50)
+        #self.hidden7 = nn.Linear(50, 25)
+        #self.hidden8 = nn.Linear(25, 2)
 
 
 
@@ -354,10 +354,10 @@ class ThePredictionMachine(nn.Module):
         x = self.hidden1(nn.functional.relu(x))
         x = self.hidden2(nn.functional.relu(x))
 
-#       x = nn.functional.relu(self.input(x))
-#       x = nn.functional.relu(self.hidden1(x))
-#       x = nn.functional.relu(self.hidden2(x))
-#       x = self.hidden3(x)
+#        x = nn.functional.relu(self.input(x))
+#        x = nn.functional.relu(self.hidden1(x))
+#        x = nn.functional.relu(self.hidden2(x))
+#        x = self.hidden3(x)
 
 #       x = nn.functional.relu(self.input(x))
 #       x = nn.functional.relu(self.hidden1(x))
@@ -380,15 +380,15 @@ class ThePredictionMachine(nn.Module):
 #       x = nn.functional.relu(self.hidden5(x))
 #       x = self.hidden6(x)
 
-#       x = nn.functional.relu(self.input(x))
-#       x = nn.functional.relu(self.hidden1(x))
-#       x = nn.functional.relu(self.hidden2(x))
-#       x = nn.functional.relu(self.hidden3(x))
-#       x = nn.functional.relu(self.hidden4(x))
-#       x = nn.functional.relu(self.hidden5(x))
-#       x = nn.functional.relu(self.hidden6(x))
-#       x = nn.functional.relu(self.hidden7(x))
-#       x = self.hidden8(x)
+#        x = nn.functional.relu(self.input(x))
+ #       x = nn.functional.relu(self.hidden1(x))
+  #      x = nn.functional.relu(self.hidden2(x))
+   #     x = nn.functional.relu(self.hidden3(x))
+    #    x = nn.functional.relu(self.hidden4(x))
+     #   x = nn.functional.relu(self.hidden5(x))
+      #  x = nn.functional.relu(self.hidden6(x))
+       # x = nn.functional.relu(self.hidden7(x))
+        #x = self.hidden8(x)
 
         return x
 
