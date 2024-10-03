@@ -277,15 +277,26 @@ for k in range(0,Nx):
 # print ('k,k_train,c_0_train,yplus',k,k_train,train_k[1][0][0],yplus)
   print ('k,k_train,c_0_train,yplus',k,k_train,train_dataset[k][1][0],yplus)
   if k == 0: 
-     plt.plot(c_0_DNS[k_train],yplus, 'ro',label='target')
-     plt.plot(train_dataset[k][1][0],yplus, 'b+',label='trained')
+     #plt.plot(c_0_DNS[k_train],yplus, 'ro',label='target')
+     plt.plot(train_dataset[k][1][0],yplus, 'b+',label='Train dataset')
   else:
-     plt.plot(c_0_DNS[k_train],yplus, 'ro')
+     #plt.plot(c_0_DNS[k_train],yplus, 'ro')
      plt.plot(train_dataset[k][1][0],yplus, 'b+')
+Mx=len(X_test)
+for k in range(0,Mx):
+   k_test = index_test[k]
+   yplus = yplus_DNS[k_test]
+   if k == 0:
+      plt.plot(test_dataset[k][1][0],yplus, 'ro',label='Test dataset')
+   else:
+      plt.plot(test_dataset[k][1][0],yplus, 'ro')
+
 plt.xlabel("$c_0$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
 plt.savefig(f'{savedir}c0-and-cNN-train-and-test-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
+
+# Everything to this point makes sense and splits the dataset between test and train data
 
 # Let's set up a neural network:
 
