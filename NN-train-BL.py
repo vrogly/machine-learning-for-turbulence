@@ -350,9 +350,9 @@ class ThePredictionMachine(nn.Module):
 
 
     def forward(self, x):
-        x = nn.functional.relu(self.input(x))
-        x = nn.functional.relu(self.hidden1(x))
-        x = self.hidden2(x)
+        x = self.input(x)
+        x = self.hidden1(nn.functional.relu(x))
+        x = self.hidden2(nn.functional.relu(x))
 
 #       x = nn.functional.relu(self.input(x))
 #       x = nn.functional.relu(self.hidden1(x))
@@ -458,7 +458,7 @@ print(f"{'time ML: '}{time.time()-start_time:.2e}")
 #transform from tensor to numpy
 c_NN = preds.detach().numpy()
  
-c_NN_old = c_NN
+#c_NN_old = c_NN
 
 c0=c_NN[:,0]
 c2=c_NN[:,1]
