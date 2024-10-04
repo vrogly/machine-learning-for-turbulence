@@ -26,73 +26,119 @@ plt.rcParams.update({'font.size': 22})
 plt.interactive(True)
 plt.close('all')
 
-
-init_time = time.time()
-
-# load DNS data
-vel_DNS=np.genfromtxt("datasets/vel_11000_DNS.dat", dtype=None,comments="%")
-
-# % Wall-normal profiles:
-# y/\delta_{99}       y+          U+          urms+       vrms+       wrms+       uv+         prms+       pu+         pv+         S(u)        F(u)        dU+/dy+     V+
+trainset = 'BL' #CF5200
+valset = 'CF5200' #BL
 
 # Add unique run ID here
 savedir = "renders/run1/"
 os.makedirs(os.path.dirname(savedir), exist_ok=True)
 
 
-y_DNS=vel_DNS[:,0]
-yplus_DNS=vel_DNS[:,1]
-u_DNS=vel_DNS[:,2]
-uu_DNS=vel_DNS[:,3]**2
-vv_DNS=vel_DNS[:,4]**2
-ww_DNS=vel_DNS[:,5]**2
-uv_DNS=vel_DNS[:,6]
+init_time = time.time()
+
+# Load data for relevant y+ interval
+def loaddict(data_set,yplusmin,yplusmax):
+   dict_temp = {}
+   if data_set == 'BL':
+      vel_DNS=np.genfromtxt("datasets/vel_11000_DNS.dat", dtype=None,comments="%")
+      DNS_RSTE = np.genfromtxt("datasets/bud_11000.prof",comments="%")
+
+      dict_temp["y"]=vel_DNS[:,0]
+      dict_temp["yplus"]=vel_DNS[:,1]
+      dict_temp["u"]=vel_DNS[:,2]
+      dict_temp["uu"]=vel_DNS[:,3]**2
+      dict_temp["vv"]=vel_DNS[:,4]**2
+      dict_temp["ww"]=vel_DNS[:,5]**2
+      dict_temp["uv"]=vel_DNS[:,6]
+      dict_temp["k"]  = 0.5*(dict_temp["uu"]+dict_temp["vv"]+dict_temp["ww"])
+
+      dict_temp["eps"] = -DNS_RSTE[:,4]
+      dict_temp["eps"][0]=dict_temp["eps"][1]
+
+   # y/d99           y+              Produc.         Advect.         Tur. flux       Pres. flux      Dissip
+   #DNS_RSTE = np.genfromtxt("/chalmers/users/lada/DNS-boundary-layers-jimenez/balances_6500_Re_theta.6500.bal.uu.txt",comments="%")
+   #
+   #prod_DNS = -DNS_RSTE[:,2]*3/2 #multiply by 3/2 to get P^k from P_11
+   #eps_DNS = -DNS_RSTE[:,6]*3/2  #multiply by 3/2 to get eps from eps_11
+   #yplus_DNS_uu = DNS_RSTE[:,1]
+      #yplus_DNS_uu = yplus_DNS
+
+   elif data_set == 'CF5200':
+      # load DNS channel data
+      DNS_mean  = np.genfromtxt("datasets/LM_Channel_5200_mean_prof.dat",comments="%").transpose()
+      DNS_stress = np.genfromtxt("datasets/LM_Channel_5200_vel_fluc_prof.dat",comments="%").transpose()
+      DNS_RSTE = np.genfromtxt("datasets/LM_Channel_5200_RSTE_k_prof.dat",comments="%")
+
+      # Load mean file
+      dict_temp["y"]     = DNS_mean[0]
+      dict_temp["yplus"] = DNS_mean[1]
+      dict_temp["u"]     = DNS_mean[2]
+      # Load fluc file
+      dict_temp["uu"] = DNS_stress[2]
+      dict_temp["vv"] = DNS_stress[3]
+      dict_temp["ww"] = DNS_stress[4]
+      dict_temp["uv"] = DNS_stress[5]
+      dict_temp["uw"] = DNS_stress[6]
+      dict_temp["vw"] = DNS_stress[7]
+      dict_temp["k"]  = 0.5*(dict_temp["uu"]+dict_temp["vv"]+dict_temp["ww"])
 
 
-dudy_DNS  = np.gradient(u_DNS,yplus_DNS)
+      dict_temp["eps"] = DNS_RSTE[:,7]
+      dict_temp["eps"][0]=dict_temp["eps"][1]
+      dict_temp["visc_diff"] =  DNS_RSTE[:,4]
+   else:
+      print(f'{data_set} is not a valid code word for a data set')
+
+   # set a min on dudy
+   dict_temp["dudy"]  = np.maximum(np.gradient(dict_temp["u"],dict_temp["yplus"]),4e-4)
+
+   # Crop values with yplusmin < y+ < yplusmax
+   index_choose=np.nonzero((dict_temp["yplus"] > yplusmin )  & (dict_temp["yplus"] < yplusmax ))
+   for key in dict_temp:
+      dict_temp[key] = dict_temp[key][index_choose]
+      
+   return dict_temp
+
+dict_train = loaddict(trainset,30,1000)
+dict_val = loaddict(valset,30,1000)
+
+uv_DNS = dict_train["uv"]
+uu_DNS = dict_train["uu"]
+vv_DNS =  dict_train["vv"]
+ww_DNS =  dict_train["ww"]
+k_DNS =  dict_train["k"]
+eps_DNS =  dict_train["eps"]
+dudy_DNS = dict_train["dudy"]
+yplus_DNS =  dict_train["yplus"]
+y_DNS =  dict_train["y"]
+u_DNS =  dict_train["u"]
+
+uv_VAL = dict_val["uv"]
+uu_VAL = dict_val["uu"]
+vv_VAL = dict_val["vv"]
+ww_VAL = dict_val["ww"]
+k_VAL = dict_val["k"]
+eps_VAL = dict_val["eps"]
+dudy_VAL = dict_val["dudy"]
+yplus_VAL = dict_val["yplus"]
+y_VAL = dict_val["y"]
+u_VAL = dict_val["u"]
 
 
-k_DNS  = 0.5*(uu_DNS+vv_DNS+ww_DNS)
-
-# y/d99           y+              Produc.         Advect.         Tur. flux       Pres. flux      Dissip
-#DNS_RSTE = np.genfromtxt("/chalmers/users/lada/DNS-boundary-layers-jimenez/balances_6500_Re_theta.6500.bal.uu.txt",comments="%")
-#
-#prod_DNS = -DNS_RSTE[:,2]*3/2 #multiply by 3/2 to get P^k from P_11
-#eps_DNS = -DNS_RSTE[:,6]*3/2  #multiply by 3/2 to get eps from eps_11
-#yplus_DNS_uu = DNS_RSTE[:,1]
-
-DNS_RSTE = np.genfromtxt("datasets/bud_11000.prof",comments="%")
-
-eps_DNS = -DNS_RSTE[:,4]
-yplus_DNS_uu = yplus_DNS
 
 
-# fix wall
-eps_DNS[0]=eps_DNS[1]
+
 
 
 #-----------------Data_manipulation--------------------
 
 
-# choose values for 30 < y+ < 1000
-index_choose=np.nonzero((yplus_DNS > 30 )  & (yplus_DNS< 1000 ))
 
 # Originally this one
 #index_choose=np.nonzero((yplus_DNS > 9 )  & (yplus_DNS< 2200 ))
 
-# set a min on dudy
-dudy_DNS = np.maximum(dudy_DNS,4e-4)
 
-uv_DNS    =  uv_DNS[index_choose]
-uu_DNS    =  uu_DNS[index_choose]
-vv_DNS    =  vv_DNS[index_choose]
-ww_DNS    =  ww_DNS[index_choose]
-k_DNS     =  k_DNS[index_choose]
-eps_DNS   =  eps_DNS[index_choose]
-dudy_DNS  =  dudy_DNS[index_choose]
-yplus_DNS =  yplus_DNS[index_choose]
-y_DNS     =  y_DNS[index_choose]
-u_DNS     =  u_DNS[index_choose]
+
 
 # Calculate ny_t and time-scale tau
 viscous_t = k_DNS**2/eps_DNS 
@@ -117,6 +163,17 @@ c_2_DNS=(2*a11_DNS+a33_DNS)/tau_DNS**2/dudy_DNS**2
 c_0_DNS=-6*a33_DNS/tau_DNS**2/dudy_DNS**2
 
 c = np.array([c_0_DNS,c_2_DNS])
+
+
+# ------------------------------- Data manipulation for validation data ------------------------------------------
+tau_VAL = k_VAL/eps_VAL
+
+a11_VAL=uu_VAL/k_VAL-0.66666
+a22_VAL=vv_VAL/k_VAL-0.66666
+a33_VAL=ww_VAL/k_VAL-0.66666
+
+c_2_VAL=(2*a11_VAL+a33_VAL)/tau_VAL**2/dudy_VAL**2
+c_0_VA=-6*a33_VAL/tau_VAL**2/dudy_VAL**2
 
 #### EVERYTHING TO THIS POINT HAS JUST CROPPED INITIAL DATASET TO CERTAIN y+ VALUES AND CALCULATED c:s ####
 
