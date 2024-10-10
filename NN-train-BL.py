@@ -16,15 +16,40 @@ from sklearn.preprocessing import MinMaxScaler
 from random import randrange
 from joblib import dump, load
 
-plt.rcParams.update({'font.size': 22})
+plt.rcParams.update({"font.size": 12})
+plt.rcParams["mathtext.fontset"] = "stix"
+plt.rcParams["font.family"] = "STIXGeneral"
+plt.rcParams["figure.figsize"] = (3.2, 2.4)
+plt.rcParams["savefig.bbox"] = "tight"
 plt.interactive(True)
+
+#plt.rcParams.update({'font.size': 22})
+#plt.interactive(True)
 plt.close('all')
 
-trainset = 'BL' #CF5200
-valset = 'CF5200' #BL
+# Set up hyperparameters
+
+# Suggestions : 1e-1, 2e-1, 5e-1, 9e-1, 1e1 
+learning_rate = 1e-1
+
+# Suggestions : 3, 5, 30
+my_batch_size = 5
+
+# Suggestions : 3e1, 1e4, 4e4
+epochs = 3000
+
+
+trainset = 'CF5200' #CF5200
+valset = 'BL' #BL
+
+yplusmin_train = 1
+yplusmax_train = 200
+
+yplusmin_val = 1
+yplusmax_val = 200
 
 # Add unique run ID here
-savedir = "renders/run1/"
+savedir = "renders/otherway1/"
 os.makedirs(os.path.dirname(savedir), exist_ok=True)
 
 init_time = time.time()
@@ -104,8 +129,8 @@ def loaddict(data_set,yplusmin,yplusmax):
    dict_temp["a22"] = dict_temp["vv"]/dict_temp["k"]-0.66666
    dict_temp["a33"] = dict_temp["ww"]/dict_temp["k"]-0.66666
 
-   dict_temp["c_2"] = (2*dict_temp["a11"]+dict_temp["a33"])/dict_temp["tau"]**2/dict_temp["dudy"]**2
-   dict_temp["c_0"] = -6*dict_temp["a33"]/dict_temp["tau"]**2/dict_temp["dudy"]**2
+   dict_temp["c2"] = (2*dict_temp["a11"]+dict_temp["a33"])/dict_temp["tau"]**2/dict_temp["dudy"]**2
+   dict_temp["c0"] = -6*dict_temp["a33"]/dict_temp["tau"]**2/dict_temp["dudy"]**2
 
 
    
@@ -118,7 +143,7 @@ def loaddict(data_set,yplusmin,yplusmax):
    for key in dict_temp:
       dict_temp[key] = dict_temp[key][index_choose]
       
-   c = np.array([dict_temp["c_0"],dict_temp["c_2"]])
+   c = np.array([dict_temp["c0"],dict_temp["c2"]])
    
    # Don't put these in dictionary, they will be in X
    dict_temp["dudy_squared"] = (dict_temp["dudy"]**2)
@@ -141,8 +166,8 @@ def loaddict(data_set,yplusmin,yplusmax):
    dict_temp["scaler_dudy"] = MinMaxScaler()
    
    X=np.zeros((len(dict_temp["dudy"]),2))
-   X[:,0] = dict_temp["scaler_dudy2"].fit_transform(dudy_squared_scaled)[:,0]
-   X[:,1] = dict_temp["scaler_dudy"].fit_transform(dudy_inv_scaled)[:,0]
+   X[:,0] = dict_temp["scaler_dudy2"].fit_transform(dict_temp["dudy_squared_scaled"])[:,0]
+   X[:,1] = dict_temp["scaler_dudy"].fit_transform(dict_temp["dudy_inv_scaled"])[:,0]
 
    dict_temp["y"] = c.transpose()
    dict_temp["X"] = X
@@ -151,8 +176,9 @@ def loaddict(data_set,yplusmin,yplusmax):
 
    return dict_temp
 
-dict_train_full = loaddict(trainset,30,1000)
-dict_val = loaddict(valset,30,1000)
+
+dict_train_full = loaddict(trainset,yplusmin_train,yplusmax_train)
+dict_val = loaddict(valset,yplusmin_val,yplusmax_val)
 
 #uv_DNS = dict_train["uv"]
 #uu_DNS = dict_train["uu"]
@@ -241,7 +267,7 @@ plt.subplots_adjust(left=0.20,bottom=0.20)
 #ax1.plot(yplus_DNS_uu,prod_DNS, 'b-', label="prod")
 ax1.plot(dict_train_full["prod"],dict_train_full["yplus"], 'b-', label="$-\overline{u'v'} \partial U/\partial y$ Cropped Original")
 ax1.plot(dict_train_full["eps"],dict_train_full["yplus"],'r--', label="dissipation")
-plt.axis([0,200,0,0.3])
+#plt.axis([0,200,0,0.3])
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
 plt.savefig(f'{savedir}prod-diss-DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
@@ -272,7 +298,7 @@ X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(dic
 dict_test = {}
 dict_train = {}
 for key in dict_train_full:
-   if key != "X" and key != "y":
+   if key not in [ "X", "y", "scaler_dudy", "scaler_dudy2"]:
       dict_test[key] = dict_train_full[key][index_test]
       dict_train[key] = dict_train_full[key][index_train]
 
@@ -281,16 +307,10 @@ dict_test["y"] = y_test
 dict_train["X"] = X_train
 dict_train["y"] = y_train
 
-# Set up hyperparameters
-
-# Suggestions : 1e-1, 2e-1, 5e-1, 9e-1, 1e1 
-learning_rate = 1e-1
-
-# Suggestions : 3, 5, 30
-my_batch_size = 5
-
-# Suggestions : 3e1, 1e4, 4e4
-epochs = 100
+dict_test["scaler_dudy"] = dict_train_full["scaler_dudy"]
+dict_test["scaler_dudy2"] = dict_train_full["scaler_dudy2"]
+dict_train["scaler_dudy"] = dict_train_full["scaler_dudy"]
+dict_train["scaler_dudy2"] = dict_train_full["scaler_dudy2"]
 
 # convert the numpy arrays to PyTorch tensors with float32 data type
 X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
@@ -588,18 +608,18 @@ calc_dict(dict_test,X_test_tensor,neural_net,"Test_")
 calc_dict(dict_val,X_VAL_tensor,neural_net,"val_")
 
 
-def plot_dict(dict_temp,typelabel):
+def plot_dict(dict_temp,X_tens,typelabel):
 
    filename = f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.pth'
    torch.save(neural_net, filename)
-   dump(scaler_dudy2,f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
-   dump(scaler_dudy,f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
+   dump(dict_temp["scaler_dudy2"],f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
+   dump(dict_temp["scaler_dudy"],f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
 
 
    dudy2_max = np.max(dict_temp["dudy_squared"])
    dudy2_min = np.min(dict_temp["dudy_squared"])
    dudy_min = np.min(dict_temp["dudy"])
-   dudy_max = np.max(dict_temp["dudy_DNS"])
+   dudy_max = np.max(dict_temp["dudy"])
    c0_min = np.min(dict_temp["c0"])
    c0_max = np.max(dict_temp["c0"])
    c2_min = np.min(dict_temp["c2"])
@@ -612,65 +632,44 @@ def plot_dict(dict_temp,typelabel):
    ########################## c0
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
-   for k in range(0,len(X_test)):
-   yplus = yplus_DNS[k]
-   if k == 0: 
-      plt.plot(dict_temp["c0"][k],dict_temp["yplus"], 'bo',label='target')
-      plt.plot(dict_temp["c0_NN"][k],yplus, 'r+',label='NN')
-   else:
-      plt.plot(dict_temp["c0"][k],dict_temp["yplus"], 'bo')
-      plt.plot(dict_temp["c0_NN"][k],dict_temp["yplus"], 'r+')
+   plt.scatter(dict_temp["c0"],dict_temp["yplus"], c ='b', marker ='o',label='target')
+   plt.scatter(dict_temp["c0_NN"],dict_temp["yplus"], c='r', marker='+', label='NN')
    plt.xlabel("$c_0$")
    plt.ylabel("$y^+$")
    plt.legend(loc="best",fontsize=12)
-   plt.savefig(f'{savedir}{typelabel}c0-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
-
+   plt.savefig(f'{savedir}{typelabel}c0-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units.png')
 
    ########################## c0 v dudy**2
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
-   dudy2_inverted=scaler_dudy2.inverse_transform(X_test)
-   for k in range(0,len(X_test)):
-   if k == 0:
-      plt.plot(c_0_DNS[index_test[k]],dudy_DNS[index_test[k]]**2, 'bo',label='target')
-      plt.plot(c0[k],dudy2_inverted[k,0], 'r+',label='NN')
-   else:
-      plt.plot(c_0_DNS[index_test[k]],dudy_DNS[index_test[k]]**2,'bo')
-      plt.plot(c0[k],dudy2_inverted[k,0], 'r+')
+
+
+   dudy2_inverted=dict_temp["scaler_dudy2"].inverse_transform(X_tens)
+   plt.scatter(dict_temp["c0"],dict_temp["dudy"]**2, c ='b', marker ='o',label='target')
+   plt.scatter(dict_temp["c0_NN"],dudy2_inverted[:,0],  c='r', marker='+',label='NN')   
    plt.xlabel("$c_0$")
    plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
    plt.legend(loc="best",fontsize=12)
-   plt.savefig(f'{savedir}{typelabel}c0-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
-
+   plt.savefig(f'{savedir}{typelabel}c0-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units.png')
 
    ########################## c2 v dudy**2
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
-   for k in range(0,len(X_test)):
-   if k == 0:
-      plt.plot(c_2_DNS[index_test[k]],dudy_DNS[index_test[k]]**2, 'bo',label='target')
-      plt.plot(c_NN[k,1],dudy_DNS[index_test[k]]**2, 'r+',label='NN')
-   else:
-      plt.plot(c_2_DNS[index_test[k]],dudy_DNS[index_test[k]]**2,'bo')
-      plt.plot(c_NN[k,1],dudy_DNS[index_test[k]]**2, 'r+')
+
+   plt.scatter(dict_temp["c2"],dict_temp["dudy"]**2,c ='b', marker ='o',label='target')
+   plt.scatter(dict_temp["c2_NN"],dict_temp["dudy"]**2,  c='r', marker='+',label='NN')
    plt.xlabel("$c_2$")
    plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
    plt.legend(loc="best",fontsize=12)
    plt.savefig(f'{savedir}{typelabel}c2-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
-
    ########################## c2
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
-   for k in range(0,len(X_test)):
-   k_test = index_test[k]
-   yplus = yplus_DNS[k_test]
-   if k == 0: 
-      plt.plot(c_2_DNS[k_test],yplus, 'bo',label='target')
-      plt.plot(c_NN[k,1],yplus, 'r+',label='NN')
-   else:
-      plt.plot(c_2_DNS[k_test],yplus, 'bo')
-      plt.plot(c_NN[k,1],yplus, 'r+')
+
+   plt.scatter(dict_temp["c2"],dict_temp["yplus"], c ='b', marker ='o',label='target')
+   plt.scatter(dict_temp["c2_NN"],dict_temp["yplus"],  c='r', marker='+',label='NN')
+
    # ax4.axis([-2000, 0, 0,5000])
    # ax5.axis([-2000, 0, 0,5000])
    plt.xlabel("$c_2$")
@@ -684,8 +683,8 @@ def plot_dict(dict_temp,typelabel):
    ########################## uu
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
-   ax1.scatter(uu_NN,yplus_DNS_test, marker="o", s=10, c="red", label="Neural Network")
-   ax1.plot(uu_DNS,yplus_DNS,'b-', label="Target")
+   ax1.scatter(dict_temp["uu"],dict_temp["yplus"],c='b', marker = 'o', label="Target")
+   ax1.scatter(dict_temp["uu_NN"],dict_temp["yplus"], marker="+", c="red", label="NN")
    plt.xlabel("$\overline{u'u'}^+$")
    plt.ylabel("$y^+$")
    plt.legend(loc="best",fontsize=12)
@@ -695,8 +694,8 @@ def plot_dict(dict_temp,typelabel):
    ########################## vv
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
-   ax1.scatter(vv_NN,yplus_DNS_test, marker="o", s=10, c="red", label="Neural Network")
-   ax1.plot(vv_DNS,yplus_DNS,'b-', label="Target")
+   ax1.scatter(dict_temp["vv"],dict_temp["yplus"],c='b', marker='o', label="Target")
+   ax1.scatter(dict_temp["vv_NN"],dict_temp["yplus"], marker="+", c="red", label="NN")
    plt.xlabel("$\overline{v'v'}^+$")
    plt.ylabel("$y^+$")
    plt.legend(loc="best",fontsize=12)
@@ -705,8 +704,8 @@ def plot_dict(dict_temp,typelabel):
    ########################## ww
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
-   ax1.scatter(ww_NN,yplus_DNS_test, marker="o", s=10, c="red", label="Neural Network")
-   ax1.plot(ww_DNS,yplus_DNS,'b-', label="Target")
+   ax1.scatter(dict_temp["ww"],dict_temp["yplus"], marker = 'o', c='b', label="Target")
+   ax1.scatter(dict_temp["ww_NN"],dict_temp["yplus"], marker="+", c="red", label="Neural Network")
    plt.xlabel("$\overline{w'w'}^+$")
    plt.ylabel("$y^+$")
    plt.legend(loc="best",fontsize=12)
@@ -715,8 +714,8 @@ def plot_dict(dict_temp,typelabel):
    ########################## time scales
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
-   ax1.plot(dudy_DNS_org,yplus_DNS,'r-', label=r"$dudy$")
-   ax1.plot(1/dudy_DNS_org,yplus_DNS,'b-', label=r"$\left(\partial U/\partial y\right)^{-1}$")
+   ax1.scatter(dict_temp["dudy_org"],dict_temp["yplus"],c='r', label=r"$dudy$")
+   ax1.scatter(1/dict_temp["dudy_org"],dict_temp["yplus"],c='b', label=r"$\left(\partial U/\partial y\right)^{-1}$")
    plt.xlabel("time scsles")
    plt.ylabel("$y^+$")
    plt.legend(loc="best",fontsize=12)
@@ -725,13 +724,13 @@ def plot_dict(dict_temp,typelabel):
    ########################## time scales
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
-   ax1.plot(dudy_DNS_org*dudy_DNS_org,yplus_DNS,'b-')
+   ax1.scatter(dict_temp["dudy_org"]*dict_temp["dudy_org"],dict_temp["yplus"],c='b')
    plt.xlabel(r"$\left(\partial U/\partial y\right)^{-1} dudy$")
    plt.ylabel("$y^+$")
    plt.savefig(f'{savedir}{typelabel}dudy-times-dudy-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
-plot_dict(dict_val,"val_")
-plot_dict(dict_test,"test_")
+plot_dict(dict_val,X_VAL_tensor,"val_")
+plot_dict(dict_test,X_test_tensor,"test_")
 
 print(f"{'total time: '}{time.time()-init_time:.2e}")
 
