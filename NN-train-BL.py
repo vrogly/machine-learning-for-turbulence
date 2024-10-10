@@ -1,12 +1,6 @@
+
 #!/usr/bin/env python
 # coding: utf-8
-
-# # Setup ðŸ—ï¸
-# 
-
-# In[1]:
-
-
 import numpy as np
 import torch 
 import sys 
@@ -32,7 +26,6 @@ valset = 'CF5200' #BL
 # Add unique run ID here
 savedir = "renders/run1/"
 os.makedirs(os.path.dirname(savedir), exist_ok=True)
-
 
 init_time = time.time()
 
@@ -92,43 +85,96 @@ def loaddict(data_set,yplusmin,yplusmax):
    # set a min on dudy
    dict_temp["dudy"]  = np.maximum(np.gradient(dict_temp["u"],dict_temp["yplus"]),4e-4)
 
+   # Calculate ny_t and time-scale tau
+   dict_temp["viscous_t"] = dict_temp["k"]**2/dict_temp["eps"] 
+   # tau       = viscous_t/abs(uv_DNS)
+   #DNS
+
+   dict_temp["dudy_org"] = np.copy(dict_temp["dudy"])
+
+   dict_temp["tau"] = dict_temp["k"]/dict_temp["eps"]
+
+   # make dudy non-dimensional
+   #dudy_DNS = dudy_DNS*tau_DNS
+   #tau_DNS = np.ones(len(dudy_DNS))
+
+   # Calculate c_0 & c_2 of the Non-linear Eddy Viscosity Model
+
+   dict_temp["a11"] = dict_temp["uu"]/dict_temp["k"]-0.66666
+   dict_temp["a22"] = dict_temp["vv"]/dict_temp["k"]-0.66666
+   dict_temp["a33"] = dict_temp["ww"]/dict_temp["k"]-0.66666
+
+   dict_temp["c_2"] = (2*dict_temp["a11"]+dict_temp["a33"])/dict_temp["tau"]**2/dict_temp["dudy"]**2
+   dict_temp["c_0"] = -6*dict_temp["a33"]/dict_temp["tau"]**2/dict_temp["dudy"]**2
+
+
+   
+
+
+
+
    # Crop values with yplusmin < y+ < yplusmax
    index_choose=np.nonzero((dict_temp["yplus"] > yplusmin )  & (dict_temp["yplus"] < yplusmax ))
    for key in dict_temp:
       dict_temp[key] = dict_temp[key][index_choose]
       
+   c = np.array([dict_temp["c_0"],dict_temp["c_2"]])
+   
+   # Don't put these in dictionary, they will be in X
+   dict_temp["dudy_squared"] = (dict_temp["dudy"]**2)
+   #scale with k and eps 
+   # dudy [1/T]
+   # dudy**2 [1/T**2]
+   
+   # N.b. T and tau are the same thing!
+   dict_temp["dudy_squared_scaled"] = dict_temp["dudy_squared"]*dict_temp["tau"]**2
+   dict_temp["dudy_squared_scaled"] = dict_temp["dudy_squared_scaled"].reshape(-1,1)
+   
+   dict_temp["dudy_inv"] = 1/dict_temp["dudy"]/dict_temp["tau"]
+
+   dict_temp["dudy_inv_scaled"] = dict_temp["dudy_inv"].reshape(-1,1)
+   
+   # use MinMax scaler
+   #scaler_dudy2 = StandardScaler()
+   #scaler_tau = StandardScaler()
+   dict_temp["scaler_dudy2"] = MinMaxScaler()
+   dict_temp["scaler_dudy"] = MinMaxScaler()
+   
+   X=np.zeros((len(dict_temp["dudy"]),2))
+   X[:,0] = dict_temp["scaler_dudy2"].fit_transform(dudy_squared_scaled)[:,0]
+   X[:,1] = dict_temp["scaler_dudy"].fit_transform(dudy_inv_scaled)[:,0]
+
+   dict_temp["y"] = c.transpose()
+   dict_temp["X"] = X
+   
+   dict_temp["prod"] = -dict_temp["uv"]*dict_temp["dudy"]
+
    return dict_temp
 
-dict_train = loaddict(trainset,30,1000)
+dict_train_full = loaddict(trainset,30,1000)
 dict_val = loaddict(valset,30,1000)
 
-uv_DNS = dict_train["uv"]
-uu_DNS = dict_train["uu"]
-vv_DNS =  dict_train["vv"]
-ww_DNS =  dict_train["ww"]
-k_DNS =  dict_train["k"]
-eps_DNS =  dict_train["eps"]
-dudy_DNS = dict_train["dudy"]
-yplus_DNS =  dict_train["yplus"]
-y_DNS =  dict_train["y"]
-u_DNS =  dict_train["u"]
+#uv_DNS = dict_train["uv"]
+#uu_DNS = dict_train["uu"]
+#vv_DNS =  dict_train["vv"]
+#ww_DNS =  dict_train["ww"]
+#k_DNS =  dict_train["k"]
+#eps_DNS =  dict_train["eps"]
+#dudy_DNS = dict_train["dudy"]
+#yplus_DNS =  dict_train["yplus"]
+#y_DNS =  dict_train["y"]
+#u_DNS =  dict_train["u"]
 
-uv_VAL = dict_val["uv"]
-uu_VAL = dict_val["uu"]
-vv_VAL = dict_val["vv"]
-ww_VAL = dict_val["ww"]
-k_VAL = dict_val["k"]
-eps_VAL = dict_val["eps"]
-dudy_VAL = dict_val["dudy"]
-yplus_VAL = dict_val["yplus"]
-y_VAL = dict_val["y"]
-u_VAL = dict_val["u"]
-
-
-
-
-
-
+#uv_VAL = dict_val["uv"]
+#uu_VAL = dict_val["uu"]
+#vv_VAL = dict_val["vv"]
+#ww_VAL = dict_val["ww"]
+#k_VAL = dict_val["k"]
+#eps_VAL = dict_val["eps"]
+#dudy_VAL = dict_val["dudy"]
+#yplus_VAL = dict_val["yplus"]
+#y_VAL = dict_val["y"]
+#u_VAL = dict_val["u"]
 
 #-----------------Data_manipulation--------------------
 
@@ -138,16 +184,14 @@ u_VAL = dict_val["u"]
 #index_choose=np.nonzero((yplus_DNS > 9 )  & (yplus_DNS< 2200 ))
 
 
-
-
 # Calculate ny_t and time-scale tau
-viscous_t = k_DNS**2/eps_DNS 
+#viscous_t = k_DNS**2/eps_DNS 
 # tau       = viscous_t/abs(uv_DNS)
 #DNS
 
-dudy_DNS_org = np.copy(dudy_DNS)
+#dudy_DNS_org = np.copy(dudy_DNS)
 
-tau_DNS = k_DNS/eps_DNS
+#tau_DNS = k_DNS/eps_DNS
 
 # make dudy non-dimensional
 #dudy_DNS = dudy_DNS*tau_DNS
@@ -155,87 +199,61 @@ tau_DNS = k_DNS/eps_DNS
 
 # Calculate c_0 & c_2 of the Non-linear Eddy Viscosity Model
 
-a11_DNS=uu_DNS/k_DNS-0.66666
-a22_DNS=vv_DNS/k_DNS-0.66666
-a33_DNS=ww_DNS/k_DNS-0.66666
+#a11_DNS=uu_DNS/k_DNS-0.66666
+#a22_DNS=vv_DNS/k_DNS-0.66666
+#a33_DNS=ww_DNS/k_DNS-0.66666
 
-c_2_DNS=(2*a11_DNS+a33_DNS)/tau_DNS**2/dudy_DNS**2
-c_0_DNS=-6*a33_DNS/tau_DNS**2/dudy_DNS**2
+#c_2_DNS=(2*a11_DNS+a33_DNS)/tau_DNS**2/dudy_DNS**2
+#c_0_DNS=-6*a33_DNS/tau_DNS**2/dudy_DNS**2
 
-c = np.array([c_0_DNS,c_2_DNS])
+#c = np.array([c_0_DNS,c_2_DNS])
 
 
 # ------------------------------- Data manipulation for validation data ------------------------------------------
-tau_VAL = k_VAL/eps_VAL
+#tau_VAL = k_VAL/eps_VAL
 
-a11_VAL=uu_VAL/k_VAL-0.66666
-a22_VAL=vv_VAL/k_VAL-0.66666
-a33_VAL=ww_VAL/k_VAL-0.66666
+#a11_VAL=uu_VAL/k_VAL-0.66666
+#a22_VAL=vv_VAL/k_VAL-0.66666
+#a33_VAL=ww_VAL/k_VAL-0.66666
 
-c_2_VAL=(2*a11_VAL+a33_VAL)/tau_VAL**2/dudy_VAL**2
-c_0_VA=-6*a33_VAL/tau_VAL**2/dudy_VAL**2
+#c_2_VAL=(2*a11_VAL+a33_VAL)/tau_VAL**2/dudy_VAL**2
+#c_0_VAL=-6*a33_VAL/tau_VAL**2/dudy_VAL**2
 
 #### EVERYTHING TO THIS POINT HAS JUST CROPPED INITIAL DATASET TO CERTAIN y+ VALUES AND CALCULATED c:s ####
 
 
 ########################## 2*a11_DNS+a33_DNS
+
 fig1,ax1 = plt.subplots()
 plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.scatter(2*a11_DNS+a33_DNS,yplus_DNS, marker="o", s=10, c="red", label="Cropped initial dataset")
+ax1.scatter(2*dict_train_full["a11"]+dict_train_full["a33"],dict_train_full["yplus"], marker="o", s=10, c="red", label="Cropped initial dataset")
 plt.xlabel("$2a_{11}+a_{33}$")
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
 plt.savefig(f'{savedir}2a11_DNS+a33_DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 
-prod_DNS_1 = -uv_DNS*dudy_DNS
 
 
 ########################## k-bal
 fig1,ax1 = plt.subplots()
 plt.subplots_adjust(left=0.20,bottom=0.20)
 #ax1.plot(yplus_DNS_uu,prod_DNS, 'b-', label="prod")
-ax1.plot(prod_DNS_1,yplus_DNS, 'b-', label="$-\overline{u'v'} \partial U/\partial y$ Cropped Original")
-ax1.plot(eps_DNS,yplus_DNS,'r--', label="dissipation")
+ax1.plot(dict_train_full["prod"],dict_train_full["yplus"], 'b-', label="$-\overline{u'v'} \partial U/\partial y$ Cropped Original")
+ax1.plot(dict_train_full["eps"],dict_train_full["yplus"],'r--', label="dissipation")
 plt.axis([0,200,0,0.3])
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
 plt.savefig(f'{savedir}prod-diss-DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
 
 
-
-
-# transpose the target vector to make it a column vector  
-y = c.transpose()
-
-dudy_squared_DNS = (dudy_DNS**2)
-# scale with k and eps 
-# dudy [1/T]
-# dudy**2 [1/T**2]
-T = tau_DNS
-dudy_squared_DNS_scaled = dudy_squared_DNS*T**2
-dudy_DNS_inv = 1/dudy_DNS/T
-# re-shape
-dudy_squared_DNS_scaled = dudy_squared_DNS_scaled.reshape(-1,1)
-dudy_DNS_inv_scaled = dudy_DNS_inv.reshape(-1,1)
-# use MinMax scaler
-#scaler_dudy2 = StandardScaler()
-#scaler_tau = StandardScaler()
-scaler_dudy2 = MinMaxScaler()
-scaler_dudy = MinMaxScaler()
-X=np.zeros((len(dudy_DNS),2))
-X[:,0] = scaler_dudy2.fit_transform(dudy_squared_DNS_scaled)[:,0]
-X[:,1] = scaler_dudy.fit_transform(dudy_DNS_inv_scaled)[:,0]
-
-
 # split the feature matrix and target vector into training and validation sets
 # test_size=0.2 means we reserve 20% of the data for validation
 # random_state=42 is a fixed seed for the random number generator, ensuring reproducibility
-
 # random_state = randrange(100)
 
-indices = np.arange(len(X))
-X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(X, y, indices,test_size=0.2,shuffle=True,random_state=42)
+indices = np.arange(len(dict_train_full["X"]))
+X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(dict_train_full["X"],dict_train_full["y"], indices,test_size=0.2,shuffle=True,random_state=42)
 
 # create test index 
 #index= np.arange(0,len(X), dtype=int)
@@ -251,28 +269,17 @@ X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(X, 
 #X_train = X[index_train]
 #y_train = y[index_train]
 
-dudy_DNS_train = dudy_DNS[index_train]
-dudy_DNS_inv_train = dudy_DNS_inv[index_train]
-k_DNS_train = k_DNS[index_train]
-uu_DNS_train = uu_DNS[index_train]
-vv_DNS_train = vv_DNS[index_train]
-ww_DNS_train = ww_DNS[index_train]
-yplus_DNS_train = yplus_DNS[index_train]
-c0_DNS_train = c_0_DNS[index_train]
-c2_DNS_train = c_2_DNS[index_train]
-tau_DNS_train = tau_DNS[index_train]
+dict_test = {}
+dict_train = {}
+for key in dict_train_full:
+   if key != "X" and key != "y":
+      dict_test[key] = dict_train_full[key][index_test]
+      dict_train[key] = dict_train_full[key][index_train]
 
-dudy_DNS_test = dudy_DNS[index_test]
-dudy_DNS_inv_test = dudy_DNS_inv[index_test]
-k_DNS_test = k_DNS[index_test]
-uu_DNS_test = uu_DNS[index_test]
-vv_DNS_test = vv_DNS[index_test]
-ww_DNS_test = ww_DNS[index_test]
-yplus_DNS_test = yplus_DNS[index_test]
-c0_DNS_test = c_0_DNS[index_test]
-c2_DNS_test = c_2_DNS[index_test]
-tau_DNS_test = tau_DNS[index_test]
-
+dict_test["X"] = X_test
+dict_test["y"] = y_test
+dict_train["X"] = X_train
+dict_train["y"] = y_train
 
 # Set up hyperparameters
 
@@ -329,10 +336,10 @@ Nx=len(X_train)
 for k in range(0,Nx):
 # train_k = next(itertools.islice(train_loader, k, None))
   train_k = train_dataset[k]
-  k_train = index_train[k]
-  yplus = yplus_DNS[k_train]
+  #k_train = index_train[k]
+  yplus = dict_train["yplus"][k]
 # print ('k,k_train,c_0_train,yplus',k,k_train,train_k[1][0][0],yplus)
-  print ('k,k_train,c_0_train,yplus',k,k_train,train_dataset[k][1][0],yplus)
+  print ('k,k_train,c_0_train,yplus',k,train_dataset[k][1][0],yplus)
   if k == 0: 
      #plt.plot(c_0_DNS[k_train],yplus, 'ro',label='target')
      plt.plot(train_dataset[k][1][0],yplus, 'b+',label='Train dataset')
@@ -341,8 +348,8 @@ for k in range(0,Nx):
      plt.plot(train_dataset[k][1][0],yplus, 'b+')
 Mx=len(X_test)
 for k in range(0,Mx):
-   k_test = index_test[k]
-   yplus = yplus_DNS[k_test]
+   #k_test = index_test[k]
+   yplus = dict_test["yplus"][k]
    if k == 0:
       plt.plot(test_dataset[k][1][0],yplus, 'ro',label='Test dataset')
    else:
@@ -508,176 +515,223 @@ for t in range(epochs):
     test_loss = test_loop(test_loader, neural_net, loss_fn)
 print("Done!")
 
-preds = neural_net(X_test_tensor)
+#y = c.transpose()
+
+'''
+dudy_squared_VAL = (dudy_VAL**2)
+# scale with k and eps 
+# dudy [1/T]
+# dudy**2 [1/T**2]
+T_VAL = tau_VAL
+dudy_squared_VAL_scaled = dudy_squared_VAL*T_VAL**2
+dudy_VAL_inv = 1/dudy_VAL/T_VAL
+# re-shape
+dudy_squared_VAL_scaled = dudy_squared_VAL_scaled.reshape(-1,1)
+dudy_VAL_inv_scaled = dudy_VAL_inv.reshape(-1,1)
+# use MinMax scaler
+#scaler_dudy2 = StandardScaler()
+#scaler_tau = StandardScaler()
+scaler_dudy2_VAL = MinMaxScaler()
+scaler_dudy_VAL = MinMaxScaler()
+X_VAL=np.zeros((len(dudy_VAL),2))
+X_VAL[:,0] = scaler_dudy2_VAL.fit_transform(dudy_squared_VAL_scaled)[:,0]
+X_VAL[:,1] = scaler_dudy_VAL.fit_transform(dudy_VAL_inv_scaled)[:,0]
+'''
+X_VAL_tensor = torch.tensor(dict_val["X"], dtype=torch.float32)
+#preds_VAL = neural_net(X_VAL_tensor)
+
+
+   
+
+
 
 print(f"{'time ML: '}{time.time()-start_time:.2e}")
 
 #transform from tensor to numpy
-c_NN = preds.detach().numpy()
+
+
+def calc_dict(dict_temp, X_tens, model,typelabel):
+
+   preds = model(X_tens)
+
+
+   c_NN = preds.detach().numpy()
  
 #c_NN_old = c_NN
 
-c0=c_NN[:,0]
-c2=c_NN[:,1]
+   dict_temp["c0_NN"] = c_NN[:,0]
+   dict_temp["c2_NN"] =c_NN[:,1]
+   
+   dict_temp["a_11_NN"] = 1/12*dict_temp["tau"]**2*dict_temp["dudy"]**2*(dict_temp["c0"] + 6*dict_temp["c2"])
+   dict_temp["uu_NN"] = (dict_temp["a_11_NN"]+0.6666)*dict_temp["k"]
 
-a_11 = 1/12*tau_DNS_test**2*dudy_DNS_test**2*(c0 + 6*c2)
-uu_NN = (a_11+0.6666)*k_DNS_test
+   #a_{22} = \frac{1}{12} \tau^2 \left(\frac{\D \Vb_1}{\dx_2}\right)^2(c_1 - 6c_2 + c_3)
+   dict_temp["a_22_NN"] = 1/12*dict_temp["tau"]**2*dict_temp["dudy"]**2*(dict_temp["c0"] - 6*dict_temp["c2"])
+   dict_temp["vv_NN"] = (dict_temp["a_22_NN"]+0.6666)*dict_temp["k"]
 
-#a_{22} = \frac{1}{12} \tau^2 \left(\frac{\D \Vb_1}{\dx_2}\right)^2(c_1 - 6c_2 + c_3)
-a_22 = 1/12*tau_DNS_test**2*dudy_DNS_test**2*(c0 - 6*c2)
-vv_NN = (a_22+0.6666)*k_DNS_test
+   # a_{33} = -\frac{1}{6} \tau^2 \left(\frac{\D \Vb_1}{\dx_2}\right)^2(c_1 + c_3)
+   dict_temp["a_33"] = -1/6*dict_temp["tau"]**2*dict_temp["dudy"]**2*dict_temp["c0"]
+   dict_temp["ww_NN"] = (dict_temp["a_33"]+0.6666)*dict_temp["k"]
 
-# a_{33} = -\frac{1}{6} \tau^2 \left(\frac{\D \Vb_1}{\dx_2}\right)^2(c_1 + c_3)
-a_33 = -1/6*tau_DNS_test**2*dudy_DNS_test**2*c0
-ww_NN = (a_33+0.6666)*k_DNS_test
+   # Compare NN values to original data
+   dict_temp["c0_std"] = np.std(dict_temp["c0_NN"]-dict_temp["c0"])/(np.mean(dict_temp["c0"].flatten()**2))**0.5
+   dict_temp["c2_std"] = np.std(dict_temp["c2_NN"]-dict_temp["c2"])/(np.mean(dict_temp["c2"].flatten()**2))**0.5
 
-c0_std=np.std(c0-c0_DNS_test)/(np.mean(c0.flatten()**2))**0.5
-c2_std=np.std(c2-c2_DNS_test)/(np.mean(c2.flatten()**2))**0.5
+   print('\nc0_error_std',dict_temp["c0_std"])
+   print('\nc2_error_std',dict_temp["c2_std"])
 
-print('\nc0_error_std',c0_std)
-print('\nc2_error_std',c2_std)
-
-np.savetxt(f'{savedir}error-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.txt', [test_loss,c0_std,c2_std] )
-
-filename = f'{savedir}model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.pth'
-torch.save(neural_net, filename)
-dump(scaler_dudy2,f'{savedir}model-channel-DNS-dudy-and-dudy2_scaler-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
-dump(scaler_dudy,f'{savedir}model-channel-DNS-dudy-and-dudy2_scaler-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
-
-dudy2_max = np.max(dudy_squared_DNS)
-dudy2_min = np.min(dudy_squared_DNS)
-dudy_min = np.min(dudy_DNS)
-dudy_max = np.max(dudy_DNS)
-c0_min = np.min(c0)
-c0_max = np.max(c0)
-c2_min = np.min(c2)
-c2_max = np.max(c2)
-
-np.savetxt(f'{savedir}min-max-model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.6-scale-with-k-eps-units-BL.txt', [dudy2_min, dudy2_max, dudy_min, dudy_max, c0_min, c0_max, c2_min, c2_max] )
+   np.savetxt(f'{savedir}{typelabel}error-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.txt', [test_loss,dict_temp["c0_std"],dict_temp["c2_std"]] )
+   #return dict_temp
 
 
-
-########################## c0
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-for k in range(0,len(X_test)):
-  k_test = index_test[k]
-  yplus = yplus_DNS[k_test]
-  if k == 0: 
-     plt.plot(c_0_DNS[k_test],yplus, 'bo',label='target')
-     plt.plot(c0[k],yplus, 'r+',label='NN')
-  else:
-     plt.plot(c_0_DNS[k_test],yplus, 'bo')
-     plt.plot(c0[k],yplus, 'r+')
-plt.xlabel("$c_0$")
-plt.ylabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}c0-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+calc_dict(dict_test,X_test_tensor,neural_net,"Test_")
+calc_dict(dict_val,X_VAL_tensor,neural_net,"val_")
 
 
-########################## c0 v dudy**2
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-dudy2_inverted=scaler_dudy2.inverse_transform(X_test)
-for k in range(0,len(X_test)):
-  if k == 0:
-     plt.plot(c_0_DNS[index_test[k]],dudy_DNS[index_test[k]]**2, 'bo',label='target')
-     plt.plot(c0[k],dudy2_inverted[k,0], 'r+',label='NN')
-  else:
-     plt.plot(c_0_DNS[index_test[k]],dudy_DNS[index_test[k]]**2,'bo')
-     plt.plot(c0[k],dudy2_inverted[k,0], 'r+')
-plt.xlabel("$c_0$")
-plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}c0-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+def plot_dict(dict_temp,typelabel):
+
+   filename = f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.pth'
+   torch.save(neural_net, filename)
+   dump(scaler_dudy2,f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
+   dump(scaler_dudy,f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
 
 
-########################## c2 v dudy**2
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-for k in range(0,len(X_test)):
-  if k == 0:
-     plt.plot(c_2_DNS[index_test[k]],dudy_DNS[index_test[k]]**2, 'bo',label='target')
-     plt.plot(c_NN[k,1],dudy_DNS[index_test[k]]**2, 'r+',label='NN')
-  else:
-     plt.plot(c_2_DNS[index_test[k]],dudy_DNS[index_test[k]]**2,'bo')
-     plt.plot(c_NN[k,1],dudy_DNS[index_test[k]]**2, 'r+')
-plt.xlabel("$c_2$")
-plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}c2-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+   dudy2_max = np.max(dict_temp["dudy_squared"])
+   dudy2_min = np.min(dict_temp["dudy_squared"])
+   dudy_min = np.min(dict_temp["dudy"])
+   dudy_max = np.max(dict_temp["dudy_DNS"])
+   c0_min = np.min(dict_temp["c0"])
+   c0_max = np.max(dict_temp["c0"])
+   c2_min = np.min(dict_temp["c2"])
+   c2_max = np.max(dict_temp["c2"])
 
-
-########################## c2
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-for k in range(0,len(X_test)):
-  k_test = index_test[k]
-  yplus = yplus_DNS[k_test]
-  if k == 0: 
-     plt.plot(c_2_DNS[k_test],yplus, 'bo',label='target')
-     plt.plot(c_NN[k,1],yplus, 'r+',label='NN')
-  else:
-     plt.plot(c_2_DNS[k_test],yplus, 'bo')
-     plt.plot(c_NN[k,1],yplus, 'r+')
-# ax4.axis([-2000, 0, 0,5000])
-# ax5.axis([-2000, 0, 0,5000])
-plt.xlabel("$c_2$")
-plt.ylabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}c2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+   np.savetxt(f'{savedir}{typelabel}min-max-model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.6-scale-with-k-eps-units-BL.txt', [dudy2_min, dudy2_max, dudy_min, dudy_max, c0_min, c0_max, c2_min, c2_max] )
 
 
 
+   ########################## c0
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   for k in range(0,len(X_test)):
+   yplus = yplus_DNS[k]
+   if k == 0: 
+      plt.plot(dict_temp["c0"][k],dict_temp["yplus"], 'bo',label='target')
+      plt.plot(dict_temp["c0_NN"][k],yplus, 'r+',label='NN')
+   else:
+      plt.plot(dict_temp["c0"][k],dict_temp["yplus"], 'bo')
+      plt.plot(dict_temp["c0_NN"][k],dict_temp["yplus"], 'r+')
+   plt.xlabel("$c_0$")
+   plt.ylabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}{typelabel}c0-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
-########################## uu
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.scatter(uu_NN,yplus_DNS_test, marker="o", s=10, c="red", label="Neural Network")
-ax1.plot(uu_DNS,yplus_DNS,'b-', label="Target")
-plt.xlabel("$\overline{u'u'}^+$")
-plt.ylabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}uu-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+
+   ########################## c0 v dudy**2
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   dudy2_inverted=scaler_dudy2.inverse_transform(X_test)
+   for k in range(0,len(X_test)):
+   if k == 0:
+      plt.plot(c_0_DNS[index_test[k]],dudy_DNS[index_test[k]]**2, 'bo',label='target')
+      plt.plot(c0[k],dudy2_inverted[k,0], 'r+',label='NN')
+   else:
+      plt.plot(c_0_DNS[index_test[k]],dudy_DNS[index_test[k]]**2,'bo')
+      plt.plot(c0[k],dudy2_inverted[k,0], 'r+')
+   plt.xlabel("$c_0$")
+   plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}{typelabel}c0-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
 
-########################## vv
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.scatter(vv_NN,yplus_DNS_test, marker="o", s=10, c="red", label="Neural Network")
-ax1.plot(vv_DNS,yplus_DNS,'b-', label="Target")
-plt.xlabel("$\overline{v'v'}^+$")
-plt.ylabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}vv-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+   ########################## c2 v dudy**2
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   for k in range(0,len(X_test)):
+   if k == 0:
+      plt.plot(c_2_DNS[index_test[k]],dudy_DNS[index_test[k]]**2, 'bo',label='target')
+      plt.plot(c_NN[k,1],dudy_DNS[index_test[k]]**2, 'r+',label='NN')
+   else:
+      plt.plot(c_2_DNS[index_test[k]],dudy_DNS[index_test[k]]**2,'bo')
+      plt.plot(c_NN[k,1],dudy_DNS[index_test[k]]**2, 'r+')
+   plt.xlabel("$c_2$")
+   plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}{typelabel}c2-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
-########################## ww
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.scatter(ww_NN,yplus_DNS_test, marker="o", s=10, c="red", label="Neural Network")
-ax1.plot(ww_DNS,yplus_DNS,'b-', label="Target")
-plt.xlabel("$\overline{w'w'}^+$")
-plt.ylabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}ww-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
-########################## time scales
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.plot(dudy_DNS_org,yplus_DNS,'r-', label=r"$dudy$")
-ax1.plot(1/dudy_DNS_org,yplus_DNS,'b-', label=r"$\left(\partial U/\partial y\right)^{-1}$")
-plt.xlabel("time scsles")
-plt.ylabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}time-scales-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+   ########################## c2
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   for k in range(0,len(X_test)):
+   k_test = index_test[k]
+   yplus = yplus_DNS[k_test]
+   if k == 0: 
+      plt.plot(c_2_DNS[k_test],yplus, 'bo',label='target')
+      plt.plot(c_NN[k,1],yplus, 'r+',label='NN')
+   else:
+      plt.plot(c_2_DNS[k_test],yplus, 'bo')
+      plt.plot(c_NN[k,1],yplus, 'r+')
+   # ax4.axis([-2000, 0, 0,5000])
+   # ax5.axis([-2000, 0, 0,5000])
+   plt.xlabel("$c_2$")
+   plt.ylabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}{typelabel}c2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
-########################## time scales
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.plot(dudy_DNS_org*dudy_DNS_org,yplus_DNS,'b-')
-plt.xlabel(r"$\left(\partial U/\partial y\right)^{-1} dudy$")
-plt.ylabel("$y^+$")
-plt.savefig(f'{savedir}dudy-times-dudy-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+
+
+
+   ########################## uu
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.scatter(uu_NN,yplus_DNS_test, marker="o", s=10, c="red", label="Neural Network")
+   ax1.plot(uu_DNS,yplus_DNS,'b-', label="Target")
+   plt.xlabel("$\overline{u'u'}^+$")
+   plt.ylabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}{typelabel}uu-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+
+
+   ########################## vv
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.scatter(vv_NN,yplus_DNS_test, marker="o", s=10, c="red", label="Neural Network")
+   ax1.plot(vv_DNS,yplus_DNS,'b-', label="Target")
+   plt.xlabel("$\overline{v'v'}^+$")
+   plt.ylabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}{typelabel}vv-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+
+   ########################## ww
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.scatter(ww_NN,yplus_DNS_test, marker="o", s=10, c="red", label="Neural Network")
+   ax1.plot(ww_DNS,yplus_DNS,'b-', label="Target")
+   plt.xlabel("$\overline{w'w'}^+$")
+   plt.ylabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}{typelabel}ww-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+
+   ########################## time scales
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.plot(dudy_DNS_org,yplus_DNS,'r-', label=r"$dudy$")
+   ax1.plot(1/dudy_DNS_org,yplus_DNS,'b-', label=r"$\left(\partial U/\partial y\right)^{-1}$")
+   plt.xlabel("time scsles")
+   plt.ylabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}{typelabel}time-scales-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+
+   ########################## time scales
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.plot(dudy_DNS_org*dudy_DNS_org,yplus_DNS,'b-')
+   plt.xlabel(r"$\left(\partial U/\partial y\right)^{-1} dudy$")
+   plt.ylabel("$y^+$")
+   plt.savefig(f'{savedir}{typelabel}dudy-times-dudy-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+
+plot_dict(dict_val,"val_")
+plot_dict(dict_test,"test_")
 
 print(f"{'total time: '}{time.time()-init_time:.2e}")
 
