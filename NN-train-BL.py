@@ -3,7 +3,7 @@
 # coding: utf-8
 import numpy as np
 import torch 
-import sys 
+import sys
 import time
 import os
 import torch.nn as nn
@@ -21,10 +21,8 @@ plt.rcParams["mathtext.fontset"] = "stix"
 plt.rcParams["font.family"] = "STIXGeneral"
 plt.rcParams["figure.figsize"] = (3.2, 2.4)
 plt.rcParams["savefig.bbox"] = "tight"
-plt.interactive(True)
+plt.interactive(False)
 
-#plt.rcParams.update({'font.size': 22})
-#plt.interactive(True)
 plt.close('all')
 
 # Set up hyperparameters
@@ -36,17 +34,17 @@ learning_rate = 1e-1
 my_batch_size = 5
 
 # Suggestions : 3e1, 1e4, 4e4
-epochs = 3000
+epochs = 1
 
 
-trainset = 'CF5200' #CF5200
-valset = 'BL' #BL
+trainset = 'BL' #'CF5200' #CF5200
+valset = 'CF5200' #'BL' #BL
 
-yplusmin_train = 1
-yplusmax_train = 200
+yplusmin_train = 5
+yplusmax_train = 1000
 
-yplusmin_val = 1
-yplusmax_val = 200
+yplusmin_val = 5
+yplusmax_val = 1000
 
 # Add unique run ID here
 savedir = "renders/otherway1/"
@@ -72,14 +70,6 @@ def loaddict(data_set,yplusmin,yplusmax):
 
       dict_temp["eps"] = -DNS_RSTE[:,4]
       dict_temp["eps"][0]=dict_temp["eps"][1]
-
-   # y/d99           y+              Produc.         Advect.         Tur. flux       Pres. flux      Dissip
-   #DNS_RSTE = np.genfromtxt("/chalmers/users/lada/DNS-boundary-layers-jimenez/balances_6500_Re_theta.6500.bal.uu.txt",comments="%")
-   #
-   #prod_DNS = -DNS_RSTE[:,2]*3/2 #multiply by 3/2 to get P^k from P_11
-   #eps_DNS = -DNS_RSTE[:,6]*3/2  #multiply by 3/2 to get eps from eps_11
-   #yplus_DNS_uu = DNS_RSTE[:,1]
-      #yplus_DNS_uu = yplus_DNS
 
    elif data_set == 'CF5200':
       # load DNS channel data
@@ -108,7 +98,7 @@ def loaddict(data_set,yplusmin,yplusmax):
       print(f'{data_set} is not a valid code word for a data set')
 
    # set a min on dudy
-   dict_temp["dudy"]  = np.maximum(np.gradient(dict_temp["u"],dict_temp["yplus"]),4e-4)
+   dict_temp["dudy"]  = np.maximum(np.gradient(dict_temp["u"],dict_temp["yplus"]),0)
 
    # Calculate ny_t and time-scale tau
    dict_temp["viscous_t"] = dict_temp["k"]**2/dict_temp["eps"] 
@@ -118,11 +108,6 @@ def loaddict(data_set,yplusmin,yplusmax):
    dict_temp["dudy_org"] = np.copy(dict_temp["dudy"])
 
    dict_temp["tau"] = dict_temp["k"]/dict_temp["eps"]
-
-   # make dudy non-dimensional
-   #dudy_DNS = dudy_DNS*tau_DNS
-   #tau_DNS = np.ones(len(dudy_DNS))
-
    # Calculate c_0 & c_2 of the Non-linear Eddy Viscosity Model
 
    dict_temp["a11"] = dict_temp["uu"]/dict_temp["k"]-0.66666
@@ -131,10 +116,6 @@ def loaddict(data_set,yplusmin,yplusmax):
 
    dict_temp["c2"] = (2*dict_temp["a11"]+dict_temp["a33"])/dict_temp["tau"]**2/dict_temp["dudy"]**2
    dict_temp["c0"] = -6*dict_temp["a33"]/dict_temp["tau"]**2/dict_temp["dudy"]**2
-
-
-   
-
 
 
 
@@ -160,8 +141,6 @@ def loaddict(data_set,yplusmin,yplusmax):
    dict_temp["dudy_inv_scaled"] = dict_temp["dudy_inv"].reshape(-1,1)
    
    # use MinMax scaler
-   #scaler_dudy2 = StandardScaler()
-   #scaler_tau = StandardScaler()
    dict_temp["scaler_dudy2"] = MinMaxScaler()
    dict_temp["scaler_dudy"] = MinMaxScaler()
    
@@ -176,76 +155,75 @@ def loaddict(data_set,yplusmin,yplusmax):
 
    return dict_temp
 
-
 dict_train_full = loaddict(trainset,yplusmin_train,yplusmax_train)
 dict_val = loaddict(valset,yplusmin_val,yplusmax_val)
 
-#uv_DNS = dict_train["uv"]
-#uu_DNS = dict_train["uu"]
-#vv_DNS =  dict_train["vv"]
-#ww_DNS =  dict_train["ww"]
-#k_DNS =  dict_train["k"]
-#eps_DNS =  dict_train["eps"]
-#dudy_DNS = dict_train["dudy"]
-#yplus_DNS =  dict_train["yplus"]
-#y_DNS =  dict_train["y"]
-#u_DNS =  dict_train["u"]
+def delta_metric(short_dataset:dict,long_dataset:dict,x1:str,x2:str):
+   #scaler_long_1
+   #scaler_long_2
+   #scaler_short_1
+   #scaler_short_2
 
-#uv_VAL = dict_val["uv"]
-#uu_VAL = dict_val["uu"]
-#vv_VAL = dict_val["vv"]
-#ww_VAL = dict_val["ww"]
-#k_VAL = dict_val["k"]
-#eps_VAL = dict_val["eps"]
-#dudy_VAL = dict_val["dudy"]
-#yplus_VAL = dict_val["yplus"]
-#y_VAL = dict_val["y"]
-#u_VAL = dict_val["u"]
+   short_dataset_comb = np.array([[short_dataset[x1]],[short_dataset[x2]]])
+   long_dataset_comb = np.array([[long_dataset[x1]],[long_dataset[x2]]])
 
-#-----------------Data_manipulation--------------------
+   metric = np.zeros_like(short_dataset_comb[:,0])
 
+   for i in len(short_dataset_comb[:,0]):
+      dxi = 0
+      dj = 0
+      for j in len(long_dataset[:,0]):
+         test = np.linalg.norm(short_dataset_comb[i,:]-long_dataset_comb[j,:])
+         if test > dxi:
+            dxi = test
+            dj = j
+      c_point_short = np.array([short_dataset["c0"][i],short_dataset["c2"][i]])
+      c_point_long = np.array([long_dataset["c0"][dj],long_dataset["c2"][dj]])
 
+      dci = np.linalg.norm(c_point_long-c_point_short)
 
-# Originally this one
-#index_choose=np.nonzero((yplus_DNS > 9 )  & (yplus_DNS< 2200 ))
+      metric[i] = dci*dxi**2
+   return metric
 
+def find_best_x(short_dataset,long_dataset,variables):
+   i = 0
+   Typelist = []
+   Goodness_list = np.zeros([len(variables)**2,1])
+   for variable1 in variables:
+      for variable2 in variables:
+         Goodness_list[i] = np.linalg.norm(short_dataset,long_dataset,variable1,variable2)
+         Typelist.append(variable1+variable2)
+         i += 1
+   Best = np.argmax(Goodness_list)
+   return Typelist[Best]
 
-# Calculate ny_t and time-scale tau
-#viscous_t = k_DNS**2/eps_DNS 
-# tau       = viscous_t/abs(uv_DNS)
-#DNS
-
-#dudy_DNS_org = np.copy(dudy_DNS)
-
-#tau_DNS = k_DNS/eps_DNS
-
-# make dudy non-dimensional
-#dudy_DNS = dudy_DNS*tau_DNS
-#tau_DNS = np.ones(len(dudy_DNS))
-
-# Calculate c_0 & c_2 of the Non-linear Eddy Viscosity Model
-
-#a11_DNS=uu_DNS/k_DNS-0.66666
-#a22_DNS=vv_DNS/k_DNS-0.66666
-#a33_DNS=ww_DNS/k_DNS-0.66666
-
-#c_2_DNS=(2*a11_DNS+a33_DNS)/tau_DNS**2/dudy_DNS**2
-#c_0_DNS=-6*a33_DNS/tau_DNS**2/dudy_DNS**2
-
-#c = np.array([c_0_DNS,c_2_DNS])
+variables = ["yplus"]
+      
+      
 
 
-# ------------------------------- Data manipulation for validation data ------------------------------------------
-#tau_VAL = k_VAL/eps_VAL
 
-#a11_VAL=uu_VAL/k_VAL-0.66666
-#a22_VAL=vv_VAL/k_VAL-0.66666
-#a33_VAL=ww_VAL/k_VAL-0.66666
 
-#c_2_VAL=(2*a11_VAL+a33_VAL)/tau_VAL**2/dudy_VAL**2
-#c_0_VAL=-6*a33_VAL/tau_VAL**2/dudy_VAL**2
 
-#### EVERYTHING TO THIS POINT HAS JUST CROPPED INITIAL DATASET TO CERTAIN y+ VALUES AND CALCULATED c:s ####
+
+'''
+plt.figure()
+plt.plot(dict_train_full["c0"],dict_train_full["yplus"],label = "Training y")
+plt.plot(dict_val["c0"],dict_val["yplus"],label = "Validation y")
+plt.xlabel("$c_0$")
+plt.ylabel("$y^+$")
+plt.legend()
+plt.savefig(f'{savedir}c0-comparison.png')
+
+plt.figure()
+plt.plot(dict_train_full["c2"],dict_train_full["yplus"],label = "Training y")
+plt.plot(dict_val["c2"],dict_val["yplus"],label = "Validation y")
+plt.xlabel("$c_2$")
+plt.ylabel("$y^+$")
+plt.legend()
+plt.savefig(f'{savedir}c2-comparison.png')
+exit()'''
+
 
 
 ########################## 2*a11_DNS+a33_DNS
@@ -260,18 +238,15 @@ plt.savefig(f'{savedir}2a11_DNS+a33_DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy
 
 
 
-
 ########################## k-bal
 fig1,ax1 = plt.subplots()
 plt.subplots_adjust(left=0.20,bottom=0.20)
-#ax1.plot(yplus_DNS_uu,prod_DNS, 'b-', label="prod")
 ax1.plot(dict_train_full["prod"],dict_train_full["yplus"], 'b-', label="$-\overline{u'v'} \partial U/\partial y$ Cropped Original")
 ax1.plot(dict_train_full["eps"],dict_train_full["yplus"],'r--', label="dissipation")
 #plt.axis([0,200,0,0.3])
 plt.ylabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
 plt.savefig(f'{savedir}prod-diss-DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
-
 
 # split the feature matrix and target vector into training and validation sets
 # test_size=0.2 means we reserve 20% of the data for validation
@@ -282,18 +257,6 @@ indices = np.arange(len(dict_train_full["X"]))
 X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(dict_train_full["X"],dict_train_full["y"], indices,test_size=0.2,shuffle=True,random_state=42)
 
 # create test index 
-#index= np.arange(0,len(X), dtype=int)
-## pick every 5th elements 
-#index_test=index[::5]
-#
-#X_test = X[::5]
-#y_test = y[::5]
-#
-## pick every element except every 5th
-#index_train = np.array([i for i in range(len(X)) if i%5!=0])
-#
-#X_train = X[index_train]
-#y_train = y[index_train]
 
 dict_test = {}
 dict_train = {}
@@ -326,49 +289,24 @@ train_loader = DataLoader(train_dataset, shuffle=False, batch_size=my_batch_size
 test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
 test_loader = DataLoader(test_dataset, shuffle=False, batch_size=my_batch_size)
 
-# show dataset
-print('len(test_dataset)',len(test_dataset))
-print('len(train_dataset)',len(train_dataset))
-print('train_dataset[0:2]',train_dataset[0:2])
-#
-# show dataloader
-k=5
-#train_k = next(itertools.islice(train_loader, k, None))
-train_k_from_dataset = train_dataset[k]
-print ('X_train[5]',X_train[k])
-print ('train_k_from_dataset',train_k_from_dataset)
-print ('y_train[5]',y_train[k])
-
-#test_k = next(itertools.islice(test_loader, k, None))
-test_k_from_dataset = test_dataset[k]
-print ('X_test[5]',X_test[k])
-print ('test_k_from_dataset',test_k_from_dataset)
-print ('y_test[5]',y_test[k])
-
 ########################## check
+
+
 fig1,ax1 = plt.subplots()
 plt.subplots_adjust(left=0.20,bottom=0.20)
 
-# OBS
-# Suggestions : 5, len(X_train)
 Nx=len(X_train)
 
 for k in range(0,Nx):
-# train_k = next(itertools.islice(train_loader, k, None))
   train_k = train_dataset[k]
-  #k_train = index_train[k]
   yplus = dict_train["yplus"][k]
-# print ('k,k_train,c_0_train,yplus',k,k_train,train_k[1][0][0],yplus)
   print ('k,k_train,c_0_train,yplus',k,train_dataset[k][1][0],yplus)
   if k == 0: 
-     #plt.plot(c_0_DNS[k_train],yplus, 'ro',label='target')
      plt.plot(train_dataset[k][1][0],yplus, 'b+',label='Train dataset')
   else:
-     #plt.plot(c_0_DNS[k_train],yplus, 'ro')
      plt.plot(train_dataset[k][1][0],yplus, 'b+')
 Mx=len(X_test)
 for k in range(0,Mx):
-   #k_test = index_test[k]
    yplus = dict_test["yplus"][k]
    if k == 0:
       plt.plot(test_dataset[k][1][0],yplus, 'ro',label='Test dataset')
@@ -476,9 +414,6 @@ class ThePredictionMachine(nn.Module):
 
         return x
 
-# In[6]:
-
-
 def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
     print('in train_loop: len(dataloader)',len(dataloader))
@@ -535,34 +470,9 @@ for t in range(epochs):
     test_loss = test_loop(test_loader, neural_net, loss_fn)
 print("Done!")
 
-#y = c.transpose()
 
-'''
-dudy_squared_VAL = (dudy_VAL**2)
-# scale with k and eps 
-# dudy [1/T]
-# dudy**2 [1/T**2]
-T_VAL = tau_VAL
-dudy_squared_VAL_scaled = dudy_squared_VAL*T_VAL**2
-dudy_VAL_inv = 1/dudy_VAL/T_VAL
-# re-shape
-dudy_squared_VAL_scaled = dudy_squared_VAL_scaled.reshape(-1,1)
-dudy_VAL_inv_scaled = dudy_VAL_inv.reshape(-1,1)
-# use MinMax scaler
-#scaler_dudy2 = StandardScaler()
-#scaler_tau = StandardScaler()
-scaler_dudy2_VAL = MinMaxScaler()
-scaler_dudy_VAL = MinMaxScaler()
-X_VAL=np.zeros((len(dudy_VAL),2))
-X_VAL[:,0] = scaler_dudy2_VAL.fit_transform(dudy_squared_VAL_scaled)[:,0]
-X_VAL[:,1] = scaler_dudy_VAL.fit_transform(dudy_VAL_inv_scaled)[:,0]
-'''
 X_VAL_tensor = torch.tensor(dict_val["X"], dtype=torch.float32)
 #preds_VAL = neural_net(X_VAL_tensor)
-
-
-   
-
 
 
 print(f"{'time ML: '}{time.time()-start_time:.2e}")
@@ -573,25 +483,23 @@ print(f"{'time ML: '}{time.time()-start_time:.2e}")
 def calc_dict(dict_temp, X_tens, model,typelabel):
 
    preds = model(X_tens)
-
-
    c_NN = preds.detach().numpy()
- 
+
 #c_NN_old = c_NN
 
    dict_temp["c0_NN"] = c_NN[:,0]
    dict_temp["c2_NN"] =c_NN[:,1]
    
-   dict_temp["a_11_NN"] = 1/12*dict_temp["tau"]**2*dict_temp["dudy"]**2*(dict_temp["c0"] + 6*dict_temp["c2"])
+   dict_temp["a_11_NN"] = 1/12*dict_temp["tau"]**2*dict_temp["dudy"]**2*(dict_temp["c0_NN"] + 6*dict_temp["c2_NN"])
    dict_temp["uu_NN"] = (dict_temp["a_11_NN"]+0.6666)*dict_temp["k"]
 
    #a_{22} = \frac{1}{12} \tau^2 \left(\frac{\D \Vb_1}{\dx_2}\right)^2(c_1 - 6c_2 + c_3)
-   dict_temp["a_22_NN"] = 1/12*dict_temp["tau"]**2*dict_temp["dudy"]**2*(dict_temp["c0"] - 6*dict_temp["c2"])
+   dict_temp["a_22_NN"] = 1/12*dict_temp["tau"]**2*dict_temp["dudy"]**2*(dict_temp["c0_NN"] - 6*dict_temp["c2_NN"])
    dict_temp["vv_NN"] = (dict_temp["a_22_NN"]+0.6666)*dict_temp["k"]
 
    # a_{33} = -\frac{1}{6} \tau^2 \left(\frac{\D \Vb_1}{\dx_2}\right)^2(c_1 + c_3)
-   dict_temp["a_33"] = -1/6*dict_temp["tau"]**2*dict_temp["dudy"]**2*dict_temp["c0"]
-   dict_temp["ww_NN"] = (dict_temp["a_33"]+0.6666)*dict_temp["k"]
+   dict_temp["a_33_NN"] = -1/6*dict_temp["tau"]**2*dict_temp["dudy"]**2*dict_temp["c0_NN"]
+   dict_temp["ww_NN"] = (dict_temp["a_33_NN"]+0.6666)*dict_temp["k"]
 
    # Compare NN values to original data
    dict_temp["c0_std"] = np.std(dict_temp["c0_NN"]-dict_temp["c0"])/(np.mean(dict_temp["c0"].flatten()**2))**0.5
@@ -603,9 +511,41 @@ def calc_dict(dict_temp, X_tens, model,typelabel):
    np.savetxt(f'{savedir}{typelabel}error-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.txt', [test_loss,dict_temp["c0_std"],dict_temp["c2_std"]] )
    #return dict_temp
 
+# %%
+
 
 calc_dict(dict_test,X_test_tensor,neural_net,"Test_")
 calc_dict(dict_val,X_VAL_tensor,neural_net,"val_")
+
+########################## du/dy vs k / epsilon
+fig1,ax1 = plt.subplots()
+plt.subplots_adjust(left=0.20,bottom=0.20)
+ax1.plot(dict_val["k"]/dict_val["eps"],dict_val["dudy"],'b', label="Validation")
+ax1.plot(dict_train_full["k"]/dict_train_full["eps"],dict_train_full["dudy"],'r--', label="Train")
+plt.ylabel("$\partial_y u$")
+plt.xlabel("$k/\epsilon$")
+plt.legend(loc="best",fontsize=12)
+plt.savefig(f'{savedir}kepsdudy.png')
+
+fig1,ax1 = plt.subplots()
+plt.subplots_adjust(left=0.20,bottom=0.20)
+ax1.plot(dict_val["k"],dict_val["dudy_squared_scaled"],'b', label="Validation")
+ax1.plot(dict_train_full["k"],dict_train_full["dudy_squared_scaled"],'r--', label="Train")
+plt.ylabel("$(\partial_y u \\tau)^2$")
+plt.xlabel("$k$")
+plt.legend(loc="best",fontsize=12)
+plt.savefig(f'{savedir}kdudy.png')
+
+fig1,ax1 = plt.subplots()
+plt.subplots_adjust(left=0.20,bottom=0.20)
+ax1.plot(dict_val["yplus"],dict_val["dudy_squared_scaled"],'b', label="Validation")
+ax1.plot(dict_train_full["yplus"],dict_train_full["dudy_squared_scaled"],'r--', label="Train")
+plt.ylabel("$(\partial_y u \\tau)^2$")
+plt.xlabel("$y^+$")
+plt.legend(loc="best",fontsize=12)
+plt.savefig(f'{savedir}ydudy.png')
+
+
 
 
 def plot_dict(dict_temp,X_tens,typelabel):
@@ -646,7 +586,7 @@ def plot_dict(dict_temp,X_tens,typelabel):
 
    dudy2_inverted=dict_temp["scaler_dudy2"].inverse_transform(X_tens)
    plt.scatter(dict_temp["c0"],dict_temp["dudy"]**2, c ='b', marker ='o',label='target')
-   plt.scatter(dict_temp["c0_NN"],dudy2_inverted[:,0],  c='r', marker='+',label='NN')   
+   plt.scatter(dict_temp["c0_NN"],dudy2_inverted[:,0]/dict_temp["tau"]**2,  c='r', marker='+',label='NN')   
    plt.xlabel("$c_0$")
    plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
    plt.legend(loc="best",fontsize=12)
@@ -657,7 +597,7 @@ def plot_dict(dict_temp,X_tens,typelabel):
    plt.subplots_adjust(left=0.20,bottom=0.20)
 
    plt.scatter(dict_temp["c2"],dict_temp["dudy"]**2,c ='b', marker ='o',label='target')
-   plt.scatter(dict_temp["c2_NN"],dict_temp["dudy"]**2,  c='r', marker='+',label='NN')
+   plt.scatter(dict_temp["c2_NN"],dudy2_inverted[:,0]/dict_temp["tau"]**2,  c='r', marker='+',label='NN')
    plt.xlabel("$c_2$")
    plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
    plt.legend(loc="best",fontsize=12)
@@ -733,4 +673,3 @@ plot_dict(dict_val,X_VAL_tensor,"val_")
 plot_dict(dict_test,X_test_tensor,"test_")
 
 print(f"{'total time: '}{time.time()-init_time:.2e}")
-
