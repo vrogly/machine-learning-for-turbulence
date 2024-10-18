@@ -34,11 +34,11 @@ learning_rate = 1e-1
 my_batch_size = 5
 
 # Suggestions : 3e1, 1e4, 4e4
-epochs = 1
+epochs = 5000
 
 
-trainset = 'BL' #'CF5200' #CF5200
-valset = 'CF5200' #'BL' #BL
+trainset = 'CF5200' #CF5200
+valset = 'BL' #BL
 
 yplusmin_train = 5
 yplusmax_train = 1000
@@ -47,7 +47,7 @@ yplusmin_val = 5
 yplusmax_val = 1000
 
 # Add unique run ID here
-savedir = "renders/otherway1/"
+savedir = "renders/xyplusk-CF-BL/"
 os.makedirs(os.path.dirname(savedir), exist_ok=True)
 
 init_time = time.time()
@@ -139,17 +139,44 @@ def loaddict(data_set,yplusmin,yplusmax):
    dict_temp["dudy_inv"] = 1/dict_temp["dudy"]/dict_temp["tau"]
 
    dict_temp["dudy_inv_scaled"] = dict_temp["dudy_inv"].reshape(-1,1)
+
+   dict_temp["L"] = dict_temp["k"]**(3/2)/dict_temp["eps"]
+   dict_temp["quotient"] = dict_temp["viscous_t"]/(dict_temp["L"]**2*dict_temp["tau"])
    
    # use MinMax scaler
    dict_temp["scaler_dudy2"] = MinMaxScaler()
    dict_temp["scaler_dudy"] = MinMaxScaler()
+   dict_temp["scaler_yplus"] = MinMaxScaler()
+   dict_temp["scaler_tau"] = MinMaxScaler()
+   dict_temp["scaler_L"] = MinMaxScaler()
+   dict_temp["scaler_quotient"] = MinMaxScaler()
+   dict_temp["scaler_k"] = MinMaxScaler()
+   dict_temp["scaler_dudy_pure"] = MinMaxScaler()
+   dict_temp["scaler_u"] = MinMaxScaler()
+
    
    X=np.zeros((len(dict_temp["dudy"]),2))
    X[:,0] = dict_temp["scaler_dudy2"].fit_transform(dict_temp["dudy_squared_scaled"])[:,0]
    X[:,1] = dict_temp["scaler_dudy"].fit_transform(dict_temp["dudy_inv_scaled"])[:,0]
 
+
+   dict_temp["minmax_dudy_squared_scaled"] = X[:,0]
+   dict_temp["minmax_dudy_inv_scaled"] = X[:,1]
+   dict_temp["minmax_yplus"] = dict_temp["scaler_yplus"].fit_transform(dict_temp["yplus"].reshape(-1,1))[:,0]
+   dict_temp["minmax_tau"] = dict_temp["scaler_tau"].fit_transform(dict_temp["tau"].reshape(-1,1))[:,0]
+   dict_temp["minmax_L"] = dict_temp["scaler_L"].fit_transform(dict_temp["L"].reshape(-1,1))[:,0]
+   dict_temp["minmax_quotient"] = dict_temp["scaler_quotient"].fit_transform(dict_temp["quotient"].reshape(-1,1))[:,0]
+   dict_temp["minmax_k"] = dict_temp["scaler_k"].fit_transform(dict_temp["k"].reshape(-1,1))[:,0]
+   dict_temp["minmax_dudy"] = dict_temp["scaler_dudy_pure"].fit_transform(dict_temp["dudy"].reshape(-1,1))[:,0]
+   dict_temp["minmax_u"] = dict_temp["scaler_u"].fit_transform(dict_temp["u"].reshape(-1,1))[:,0]
+
+   X2=np.zeros((len(dict_temp["dudy"]),2))
+   X2[:,0] = dict_temp["minmax_k"]
+   X2[:,1] = dict_temp["minmax_yplus"]
+
+
    dict_temp["y"] = c.transpose()
-   dict_temp["X"] = X
+   dict_temp["X"] = X2
    
    dict_temp["prod"] = -dict_temp["uv"]*dict_temp["dudy"]
 
@@ -158,48 +185,66 @@ def loaddict(data_set,yplusmin,yplusmax):
 dict_train_full = loaddict(trainset,yplusmin_train,yplusmax_train)
 dict_val = loaddict(valset,yplusmin_val,yplusmax_val)
 
-def delta_metric(short_dataset:dict,long_dataset:dict,x1:str,x2:str):
+def delta_metric(dataset1:dict,dataset2:dict,x1:str,x2:str):
    #scaler_long_1
    #scaler_long_2
    #scaler_short_1
    #scaler_short_2
 
-   short_dataset_comb = np.array([[short_dataset[x1]],[short_dataset[x2]]])
-   long_dataset_comb = np.array([[long_dataset[x1]],[long_dataset[x2]]])
+   dataset1_comb = np.array([dataset1[x1],dataset1[x2]]).T
+   dataset2_comb = np.array([dataset2[x1],dataset2[x2]]).T
 
-   metric = np.zeros_like(short_dataset_comb[:,0])
+   metric = np.zeros_like(dataset1_comb[:,0])
 
-   for i in len(short_dataset_comb[:,0]):
-      dxi = 0
+   for i in range(len(dataset1_comb[:,0])):
+      dxi = 100
       dj = 0
-      for j in len(long_dataset[:,0]):
-         test = np.linalg.norm(short_dataset_comb[i,:]-long_dataset_comb[j,:])
-         if test > dxi:
+      for j in range(len(dataset2_comb[:,0])):
+         test = np.linalg.norm(dataset1_comb[i,:]-dataset2_comb[j,:])
+         if test < dxi:
             dxi = test
             dj = j
-      c_point_short = np.array([short_dataset["c0"][i],short_dataset["c2"][i]])
-      c_point_long = np.array([long_dataset["c0"][dj],long_dataset["c2"][dj]])
+      c_point_short = np.array([dataset1["c0"][i],dataset1["c2"][i]])
+      c_point_long = np.array([dataset2["c0"][dj],dataset2["c2"][dj]])
 
       dci = np.linalg.norm(c_point_long-c_point_short)
 
-      metric[i] = dci*dxi**2
+      metric[i] = (dci*dxi**2)
    return metric
 
-def find_best_x(short_dataset,long_dataset,variables):
+def find_best_x(dataset1,dataset2,variables):
    i = 0
    Typelist = []
    Goodness_list = np.zeros([len(variables)**2,1])
    for variable1 in variables:
       for variable2 in variables:
-         Goodness_list[i] = np.linalg.norm(short_dataset,long_dataset,variable1,variable2)
+         Goodness_list[i] = (np.linalg.norm(delta_metric(dataset1,dataset2,variable1,variable2))+np.linalg.norm(delta_metric(dataset2,dataset1,variable1,variable2)))/2     
          Typelist.append(variable1+variable2)
          i += 1
    Best = np.argmax(Goodness_list)
-   return Typelist[Best]
+   return Typelist[Best],Typelist,Goodness_list
 
-variables = ["yplus"]
-      
-      
+variables = ["minmax_dudy_squared_scaled","minmax_dudy_inv_scaled","minmax_yplus","minmax_tau","minmax_L","minmax_quotient","minmax_k","minmax_dudy","minmax_u"]
+
+#for variable in variables:
+   #print(len(dict_train_full[variable]))
+#print(len(dict_train_full["minmax_yplus"]),len(dict_val["minmax_yplus"]))
+Best, Types, Goodness = find_best_x(dict_train_full,dict_val,variables)
+#print(Goodness)
+print(f'Best combination: {Best}') 
+print(f'Worst combination: {Types[np.argmin(Goodness)]}')
+
+plt.figure()
+plt.plot(dict_train_full["minmax_tau"],dict_train_full["minmax_tau"],label = 'Training data')
+plt.plot(dict_val["minmax_tau"],dict_val["minmax_tau"],label = 'Validation data')
+plt.legend()
+plt.savefig(f'{savedir}worst_x.png')
+
+plt.figure()
+plt.plot(dict_train_full["minmax_yplus"],dict_train_full["minmax_k"],label = 'Training data')
+plt.plot(dict_val["minmax_yplus"],dict_val["minmax_k"],label = 'Validation data')
+plt.legend()
+plt.savefig(f'{savedir}best_x.png')
 
 
 
@@ -261,7 +306,7 @@ X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(dic
 dict_test = {}
 dict_train = {}
 for key in dict_train_full:
-   if key not in [ "X", "y", "scaler_dudy", "scaler_dudy2"]:
+   if key not in [ "X", "y", "scaler_dudy", "scaler_dudy2","scaler_yplus","scaler_tau","scaler_L","scaler_quotient","scaler_k","scaler_dudy_pure", "scaler_u"]:
       dict_test[key] = dict_train_full[key][index_test]
       dict_train[key] = dict_train_full[key][index_train]
 
@@ -272,8 +317,23 @@ dict_train["y"] = y_train
 
 dict_test["scaler_dudy"] = dict_train_full["scaler_dudy"]
 dict_test["scaler_dudy2"] = dict_train_full["scaler_dudy2"]
+dict_test["scaler_yplus"] = dict_train_full["scaler_yplus"]
+dict_test["scaler_tau"] = dict_train_full["scaler_tau"]
+dict_test["scaler_L"] = dict_train_full["scaler_L"]
+dict_test["scaler_quotient"] = dict_train_full["scaler_quotient"]
+dict_test["scaler_k"] = dict_train_full["scaler_k"]
+dict_test["scaler_dudu_pure"] = dict_train_full["scaler_dudy_pure"]
+dict_test["scaler_u"] = dict_train_full["scaler_u"]
+
 dict_train["scaler_dudy"] = dict_train_full["scaler_dudy"]
 dict_train["scaler_dudy2"] = dict_train_full["scaler_dudy2"]
+dict_train["scaler_yplus"] = dict_train_full["scaler_yplus"]
+dict_train["scaler_tau"] = dict_train_full["scaler_tau"]
+dict_train["scaler_L"] = dict_train_full["scaler_L"]
+dict_train["scaler_quotient"] = dict_train_full["scaler_quotient"]
+dict_train["scaler_k"] = dict_train_full["scaler_k"]
+dict_train["scaler_dudu_pure"] = dict_train_full["scaler_dudy_pure"]
+dict_train["scaler_u"] = dict_train_full["scaler_u"]
 
 # convert the numpy arrays to PyTorch tensors with float32 data type
 X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
@@ -518,6 +578,7 @@ calc_dict(dict_test,X_test_tensor,neural_net,"Test_")
 calc_dict(dict_val,X_VAL_tensor,neural_net,"val_")
 
 ########################## du/dy vs k / epsilon
+'''
 fig1,ax1 = plt.subplots()
 plt.subplots_adjust(left=0.20,bottom=0.20)
 ax1.plot(dict_val["k"]/dict_val["eps"],dict_val["dudy"],'b', label="Validation")
@@ -544,7 +605,7 @@ plt.ylabel("$(\partial_y u \\tau)^2$")
 plt.xlabel("$y^+$")
 plt.legend(loc="best",fontsize=12)
 plt.savefig(f'{savedir}ydudy.png')
-
+'''
 
 
 
@@ -584,9 +645,9 @@ def plot_dict(dict_temp,X_tens,typelabel):
    plt.subplots_adjust(left=0.20,bottom=0.20)
 
 
-   dudy2_inverted=dict_temp["scaler_dudy2"].inverse_transform(X_tens)
+   #dudy2_inverted=dict_temp["scaler_dudy2"].inverse_transform(X_tens)
    plt.scatter(dict_temp["c0"],dict_temp["dudy"]**2, c ='b', marker ='o',label='target')
-   plt.scatter(dict_temp["c0_NN"],dudy2_inverted[:,0]/dict_temp["tau"]**2,  c='r', marker='+',label='NN')   
+   plt.scatter(dict_temp["c0_NN"],dict_temp["dudy"]**2,  c='r', marker='+',label='NN')   
    plt.xlabel("$c_0$")
    plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
    plt.legend(loc="best",fontsize=12)
@@ -597,7 +658,7 @@ def plot_dict(dict_temp,X_tens,typelabel):
    plt.subplots_adjust(left=0.20,bottom=0.20)
 
    plt.scatter(dict_temp["c2"],dict_temp["dudy"]**2,c ='b', marker ='o',label='target')
-   plt.scatter(dict_temp["c2_NN"],dudy2_inverted[:,0]/dict_temp["tau"]**2,  c='r', marker='+',label='NN')
+   plt.scatter(dict_temp["c2_NN"],dict_temp["dudy"]**2,  c='r', marker='+',label='NN')
    plt.xlabel("$c_2$")
    plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
    plt.legend(loc="best",fontsize=12)
