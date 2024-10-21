@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split
 #from sklearn.discriminant_analysis import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 from random import randrange
+from random import sample
 from joblib import dump, load
 
 plt.rcParams.update({"font.size": 12})
@@ -27,32 +28,35 @@ plt.close('all')
 
 # Set up hyperparameters
 
-# Suggestions : 1e-1, 2e-1, 5e-1, 9e-1, 1e1 
-learning_rate = 1e-1
+if __name__ == "__main__":
+   # Suggestions : 1e-1, 2e-1, 5e-1, 9e-1, 1e1 
+   learning_rate = 1e-1
 
-# Suggestions : 3, 5, 30
-my_batch_size = 5
+   # Suggestions : 3, 5, 30
+   my_batch_size = 5
 
-# Suggestions : 3e1, 1e4, 4e4
-epochs = 5000
+   # Suggestions : 3e1, 1e4, 4e4
+   epochs = 5000
 
 
-trainset = 'CF5200' #CF5200
-valset = 'BL' #BL
+   trainset = 'CF5200' #CF5200
+   valset = 'BL' #BL
 
-yplusmin_train = 5
-yplusmax_train = 1000
+   yplusmin_train = 5
+   yplusmax_train = 1000
 
-yplusmin_val = 5
-yplusmax_val = 1000
+   yplusmin_val = 5
+   yplusmax_val = 1000
 
-# Add unique run ID here
-savedir = "renders/xyplusk-CF-BL/"
-os.makedirs(os.path.dirname(savedir), exist_ok=True)
+   X_choice = 'dudy' #'yplusk'
 
-init_time = time.time()
+   conc = True
+   search = False
 
-# Load data for relevant y+ interval
+   # Add unique run ID here
+   savedir = "renders/concatenation_test/"
+   os.makedirs(os.path.dirname(savedir), exist_ok=True)
+
 def loaddict(data_set,yplusmin,yplusmax):
    dict_temp = {}
    if data_set == 'BL':
@@ -124,8 +128,12 @@ def loaddict(data_set,yplusmin,yplusmax):
    for key in dict_temp:
       dict_temp[key] = dict_temp[key][index_choose]
       
+
+   return dict_temp
+
+def create_X(dict_temp,X_choice): 
    c = np.array([dict_temp["c0"],dict_temp["c2"]])
-   
+
    # Don't put these in dictionary, they will be in X
    dict_temp["dudy_squared"] = (dict_temp["dudy"]**2)
    #scale with k and eps 
@@ -176,21 +184,15 @@ def loaddict(data_set,yplusmin,yplusmax):
 
 
    dict_temp["y"] = c.transpose()
-   dict_temp["X"] = X2
+   if X_choice == 'dudy':
+      dict_temp["X"] = X
+   elif X_choice == 'yplusk':
+      dict_temp["X"] = X2
    
    dict_temp["prod"] = -dict_temp["uv"]*dict_temp["dudy"]
 
-   return dict_temp
-
-dict_train_full = loaddict(trainset,yplusmin_train,yplusmax_train)
-dict_val = loaddict(valset,yplusmin_val,yplusmax_val)
 
 def delta_metric(dataset1:dict,dataset2:dict,x1:str,x2:str):
-   #scaler_long_1
-   #scaler_long_2
-   #scaler_short_1
-   #scaler_short_2
-
    dataset1_comb = np.array([dataset1[x1],dataset1[x2]]).T
    dataset2_comb = np.array([dataset2[x1],dataset2[x2]]).T
 
@@ -224,173 +226,15 @@ def find_best_x(dataset1,dataset2,variables):
    Best = np.argmax(Goodness_list)
    return Typelist[Best],Typelist,Goodness_list
 
-variables = ["minmax_dudy_squared_scaled","minmax_dudy_inv_scaled","minmax_yplus","minmax_tau","minmax_L","minmax_quotient","minmax_k","minmax_dudy","minmax_u"]
-
-#for variable in variables:
-   #print(len(dict_train_full[variable]))
-#print(len(dict_train_full["minmax_yplus"]),len(dict_val["minmax_yplus"]))
-Best, Types, Goodness = find_best_x(dict_train_full,dict_val,variables)
-#print(Goodness)
-print(f'Best combination: {Best}') 
-print(f'Worst combination: {Types[np.argmin(Goodness)]}')
-
-plt.figure()
-plt.plot(dict_train_full["minmax_tau"],dict_train_full["minmax_tau"],label = 'Training data')
-plt.plot(dict_val["minmax_tau"],dict_val["minmax_tau"],label = 'Validation data')
-plt.legend()
-plt.savefig(f'{savedir}worst_x.png')
-
-plt.figure()
-plt.plot(dict_train_full["minmax_yplus"],dict_train_full["minmax_k"],label = 'Training data')
-plt.plot(dict_val["minmax_yplus"],dict_val["minmax_k"],label = 'Validation data')
-plt.legend()
-plt.savefig(f'{savedir}best_x.png')
-
-
-
-
-
-
-'''
-plt.figure()
-plt.plot(dict_train_full["c0"],dict_train_full["yplus"],label = "Training y")
-plt.plot(dict_val["c0"],dict_val["yplus"],label = "Validation y")
-plt.xlabel("$c_0$")
-plt.ylabel("$y^+$")
-plt.legend()
-plt.savefig(f'{savedir}c0-comparison.png')
-
-plt.figure()
-plt.plot(dict_train_full["c2"],dict_train_full["yplus"],label = "Training y")
-plt.plot(dict_val["c2"],dict_val["yplus"],label = "Validation y")
-plt.xlabel("$c_2$")
-plt.ylabel("$y^+$")
-plt.legend()
-plt.savefig(f'{savedir}c2-comparison.png')
-exit()'''
-
-
-
-########################## 2*a11_DNS+a33_DNS
-
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.scatter(2*dict_train_full["a11"]+dict_train_full["a33"],dict_train_full["yplus"], marker="o", s=10, c="red", label="Cropped initial dataset")
-plt.xlabel("$2a_{11}+a_{33}$")
-plt.ylabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}2a11_DNS+a33_DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
-
-
-
-########################## k-bal
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.plot(dict_train_full["prod"],dict_train_full["yplus"], 'b-', label="$-\overline{u'v'} \partial U/\partial y$ Cropped Original")
-ax1.plot(dict_train_full["eps"],dict_train_full["yplus"],'r--', label="dissipation")
-#plt.axis([0,200,0,0.3])
-plt.ylabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}prod-diss-DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
-
-# split the feature matrix and target vector into training and validation sets
-# test_size=0.2 means we reserve 20% of the data for validation
-# random_state=42 is a fixed seed for the random number generator, ensuring reproducibility
-# random_state = randrange(100)
-
-indices = np.arange(len(dict_train_full["X"]))
-X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(dict_train_full["X"],dict_train_full["y"], indices,test_size=0.2,shuffle=True,random_state=42)
-
-# create test index 
-
-dict_test = {}
-dict_train = {}
-for key in dict_train_full:
-   if key not in [ "X", "y", "scaler_dudy", "scaler_dudy2","scaler_yplus","scaler_tau","scaler_L","scaler_quotient","scaler_k","scaler_dudy_pure", "scaler_u"]:
-      dict_test[key] = dict_train_full[key][index_test]
-      dict_train[key] = dict_train_full[key][index_train]
-
-dict_test["X"] = X_test
-dict_test["y"] = y_test
-dict_train["X"] = X_train
-dict_train["y"] = y_train
-
-dict_test["scaler_dudy"] = dict_train_full["scaler_dudy"]
-dict_test["scaler_dudy2"] = dict_train_full["scaler_dudy2"]
-dict_test["scaler_yplus"] = dict_train_full["scaler_yplus"]
-dict_test["scaler_tau"] = dict_train_full["scaler_tau"]
-dict_test["scaler_L"] = dict_train_full["scaler_L"]
-dict_test["scaler_quotient"] = dict_train_full["scaler_quotient"]
-dict_test["scaler_k"] = dict_train_full["scaler_k"]
-dict_test["scaler_dudu_pure"] = dict_train_full["scaler_dudy_pure"]
-dict_test["scaler_u"] = dict_train_full["scaler_u"]
-
-dict_train["scaler_dudy"] = dict_train_full["scaler_dudy"]
-dict_train["scaler_dudy2"] = dict_train_full["scaler_dudy2"]
-dict_train["scaler_yplus"] = dict_train_full["scaler_yplus"]
-dict_train["scaler_tau"] = dict_train_full["scaler_tau"]
-dict_train["scaler_L"] = dict_train_full["scaler_L"]
-dict_train["scaler_quotient"] = dict_train_full["scaler_quotient"]
-dict_train["scaler_k"] = dict_train_full["scaler_k"]
-dict_train["scaler_dudu_pure"] = dict_train_full["scaler_dudy_pure"]
-dict_train["scaler_u"] = dict_train_full["scaler_u"]
-
-# convert the numpy arrays to PyTorch tensors with float32 data type
-X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
-X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
-
-# create PyTorch datasets and dataloaders for the training and validation sets
-# a TensorDataset wraps the feature and target tensors into a single dataset
-# a DataLoader loads the data in batches and shuffles the batches if shuffle=True
-train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
-train_loader = DataLoader(train_dataset, shuffle=False, batch_size=my_batch_size)
-test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
-test_loader = DataLoader(test_dataset, shuffle=False, batch_size=my_batch_size)
-
-########################## check
-
-
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-
-Nx=len(X_train)
-
-for k in range(0,Nx):
-  train_k = train_dataset[k]
-  yplus = dict_train["yplus"][k]
-  print ('k,k_train,c_0_train,yplus',k,train_dataset[k][1][0],yplus)
-  if k == 0: 
-     plt.plot(train_dataset[k][1][0],yplus, 'b+',label='Train dataset')
-  else:
-     plt.plot(train_dataset[k][1][0],yplus, 'b+')
-Mx=len(X_test)
-for k in range(0,Mx):
-   yplus = dict_test["yplus"][k]
-   if k == 0:
-      plt.plot(test_dataset[k][1][0],yplus, 'ro',label='Test dataset')
-   else:
-      plt.plot(test_dataset[k][1][0],yplus, 'ro')
-
-plt.xlabel("$c_0$")
-plt.ylabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}c0-and-cNN-train-and-test-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
-
-# Everything to this point makes sense and splits the dataset between test and train data
-
-# Let's set up a neural network:
-
 class ThePredictionMachine(nn.Module):
 
-    def __init__(self):
-        
-        super(ThePredictionMachine, self).__init__()
+   def __init__(self):
+      
+      super(ThePredictionMachine, self).__init__()
 
-        self.input   = nn.Linear(2, 50)
-        self.hidden1 = nn.Linear(50, 50)
-        self.hidden2 = nn.Linear(50, 2)
+      self.input   = nn.Linear(2, 50)
+      self.hidden1 = nn.Linear(50, 50)
+      self.hidden2 = nn.Linear(50, 2)
 
 #        self.input   = nn.Linear(2, 50)
 #        self.hidden1 = nn.Linear(50, 50)
@@ -419,22 +263,22 @@ class ThePredictionMachine(nn.Module):
 #       self.hidden6 = nn.Linear(25, 2)
 
 
-        #self.input   = nn.Linear(2, 50)
-        #self.hidden1 = nn.Linear(50, 50)
-        #self.hidden2 = nn.Linear(50, 50)
-        #self.hidden3 = nn.Linear(50, 50)
-        #self.hidden4 = nn.Linear(50, 50)
-        #self.hidden5 = nn.Linear(50, 50)
-        #self.hidden6 = nn.Linear(50, 50)
-        #self.hidden7 = nn.Linear(50, 25)
-        #self.hidden8 = nn.Linear(25, 2)
+      #self.input   = nn.Linear(2, 50)
+      #self.hidden1 = nn.Linear(50, 50)
+      #self.hidden2 = nn.Linear(50, 50)
+      #self.hidden3 = nn.Linear(50, 50)
+      #self.hidden4 = nn.Linear(50, 50)
+      #self.hidden5 = nn.Linear(50, 50)
+      #self.hidden6 = nn.Linear(50, 50)
+      #self.hidden7 = nn.Linear(50, 25)
+      #self.hidden8 = nn.Linear(25, 2)
 
 
 
-    def forward(self, x):
-        x = self.input(x)
-        x = self.hidden1(nn.functional.relu(x))
-        x = self.hidden2(nn.functional.relu(x))
+   def forward(self, x):
+      x = self.input(x)
+      x = self.hidden1(nn.functional.relu(x))
+      x = self.hidden2(nn.functional.relu(x))
 
 #        x = nn.functional.relu(self.input(x))
 #        x = nn.functional.relu(self.hidden1(x))
@@ -463,89 +307,58 @@ class ThePredictionMachine(nn.Module):
 #       x = self.hidden6(x)
 
 #        x = nn.functional.relu(self.input(x))
- #       x = nn.functional.relu(self.hidden1(x))
-  #      x = nn.functional.relu(self.hidden2(x))
+#       x = nn.functional.relu(self.hidden1(x))
+#      x = nn.functional.relu(self.hidden2(x))
    #     x = nn.functional.relu(self.hidden3(x))
-    #    x = nn.functional.relu(self.hidden4(x))
-     #   x = nn.functional.relu(self.hidden5(x))
+   #    x = nn.functional.relu(self.hidden4(x))
+   #   x = nn.functional.relu(self.hidden5(x))
       #  x = nn.functional.relu(self.hidden6(x))
-       # x = nn.functional.relu(self.hidden7(x))
-        #x = self.hidden8(x)
+      # x = nn.functional.relu(self.hidden7(x))
+      #x = self.hidden8(x)
 
-        return x
+      return x
 
 def train_loop(dataloader, model, loss_fn, optimizer):
-    size = len(dataloader.dataset)
-    print('in train_loop: len(dataloader)',len(dataloader))
-    for batch, (X, y) in enumerate(dataloader):
-        # Compute prediction and loss
-        pred = model(X)
-        loss = loss_fn(pred, y)
+   size = len(dataloader.dataset)
+   print('in train_loop: len(dataloader)',len(dataloader))
+   for batch, (X, y) in enumerate(dataloader):
+      # Compute prediction and loss
+      pred = model(X)
+      loss = loss_fn(pred, y)
 
-        # Backpropagation
+      # Backpropagation
 #       optimizer.zero_grad()
 # https://pytorch.org/docs/stable/generated/torch.optim.Optimizer.zero_grad.html
-        optimizer.zero_grad(None)
-        loss.backward()
-        optimizer.step()
+      optimizer.zero_grad(None)
+      loss.backward()
+      optimizer.step()
 
 
 def test_loop(dataloader, model, loss_fn):
-    global pred_numpy,pred1,size1
-    size = len(dataloader.dataset)
-    size1 = size
-    num_batches = len(dataloader)
-    test_loss = 0
-    print('in test_loop: len(dataloader)',len(dataloader))
+   global pred_numpy,pred1,size1
+   size = len(dataloader.dataset)
+   size1 = size
+   num_batches = len(dataloader)
+   test_loss = 0
+   print('in test_loop: len(dataloader)',len(dataloader))
 
-    with torch.no_grad():
-        for X, y in dataloader:
+   with torch.no_grad():
+      for X, y in dataloader:
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
 #transform from tensor to numpy
             pred_numpy = pred.detach().numpy()
 
-    test_loss /= num_batches
+   test_loss /= num_batches
 
-    print(f"Avg loss: {test_loss:>.2e} \n")
+   print(f"Avg loss: {test_loss:>.2e} \n")
 
-    return test_loss
+   return test_loss
 
-start_time = time.time()
-
-# Instantiate a neural network
-neural_net = ThePredictionMachine()
-
-# Initialize the loss function
-loss_fn = nn.MSELoss()
-
-# Choose loss function, check out https://pytorch.org/docs/stable/optim.html for more info
-# In this case we choose Stocastic Gradient Descent
-optimizer = torch.optim.SGD(neural_net.parameters(), lr=learning_rate)
-
-
-for t in range(epochs):
-    print(f"Epoch {t+1}\n-------------------------------")
-    train_loop(train_loader, neural_net, loss_fn, optimizer)
-    test_loss = test_loop(test_loader, neural_net, loss_fn)
-print("Done!")
-
-
-X_VAL_tensor = torch.tensor(dict_val["X"], dtype=torch.float32)
-#preds_VAL = neural_net(X_VAL_tensor)
-
-
-print(f"{'time ML: '}{time.time()-start_time:.2e}")
-
-#transform from tensor to numpy
-
-
-def calc_dict(dict_temp, X_tens, model,typelabel):
-
+def calc_dict(dict_temp, X_tens, model,typelabel,test_loss):
    preds = model(X_tens)
    c_NN = preds.detach().numpy()
-
-#c_NN_old = c_NN
+   #c_NN_old = c_NN
 
    dict_temp["c0_NN"] = c_NN[:,0]
    dict_temp["c2_NN"] =c_NN[:,1]
@@ -571,48 +384,8 @@ def calc_dict(dict_temp, X_tens, model,typelabel):
    np.savetxt(f'{savedir}{typelabel}error-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.txt', [test_loss,dict_temp["c0_std"],dict_temp["c2_std"]] )
    #return dict_temp
 
-# %%
-
-
-calc_dict(dict_test,X_test_tensor,neural_net,"Test_")
-calc_dict(dict_val,X_VAL_tensor,neural_net,"val_")
-
-########################## du/dy vs k / epsilon
-'''
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.plot(dict_val["k"]/dict_val["eps"],dict_val["dudy"],'b', label="Validation")
-ax1.plot(dict_train_full["k"]/dict_train_full["eps"],dict_train_full["dudy"],'r--', label="Train")
-plt.ylabel("$\partial_y u$")
-plt.xlabel("$k/\epsilon$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}kepsdudy.png')
-
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.plot(dict_val["k"],dict_val["dudy_squared_scaled"],'b', label="Validation")
-ax1.plot(dict_train_full["k"],dict_train_full["dudy_squared_scaled"],'r--', label="Train")
-plt.ylabel("$(\partial_y u \\tau)^2$")
-plt.xlabel("$k$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}kdudy.png')
-
-fig1,ax1 = plt.subplots()
-plt.subplots_adjust(left=0.20,bottom=0.20)
-ax1.plot(dict_val["yplus"],dict_val["dudy_squared_scaled"],'b', label="Validation")
-ax1.plot(dict_train_full["yplus"],dict_train_full["dudy_squared_scaled"],'r--', label="Train")
-plt.ylabel("$(\partial_y u \\tau)^2$")
-plt.xlabel("$y^+$")
-plt.legend(loc="best",fontsize=12)
-plt.savefig(f'{savedir}ydudy.png')
-'''
-
-
 
 def plot_dict(dict_temp,X_tens,typelabel):
-
-   filename = f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.pth'
-   torch.save(neural_net, filename)
    dump(dict_temp["scaler_dudy2"],f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
    dump(dict_temp["scaler_dudy"],f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
 
@@ -730,7 +503,264 @@ def plot_dict(dict_temp,X_tens,typelabel):
    plt.ylabel("$y^+$")
    plt.savefig(f'{savedir}{typelabel}dudy-times-dudy-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
-plot_dict(dict_val,X_VAL_tensor,"val_")
-plot_dict(dict_test,X_test_tensor,"test_")
 
-print(f"{'total time: '}{time.time()-init_time:.2e}")
+def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplusmax_train,yplusmin_val,yplusmax_val,savedir,X_choice,concatenate = False,x_search = False):
+
+   init_time = time.time()
+
+   # Load data for relevant y+ interval
+   
+   if concatenate:
+      dict_1 = loaddict(trainset,yplusmin_train,yplusmax_train)
+      dict_2 = loaddict(valset,yplusmin_val,yplusmax_val)
+      maxlength = min(len(dict_1["yplus"]),len(dict_2["yplus"]))
+      one_inds = sample(range(len(dict_1["yplus"])),maxlength)
+      two_inds = sample(range(len(dict_2["yplus"])),maxlength)
+      dict_train_full = {}
+      for key in dict_1:
+         if key in dict_2:
+            dict_train_full[key] = np.append(dict_1[key][one_inds],dict_2[key][two_inds])
+      create_X(dict_train_full,X_choice)
+
+   else:
+      dict_train_full = loaddict(trainset,yplusmin_train,yplusmax_train)
+      create_X(dict_train_full,X_choice)
+
+      dict_val = loaddict(valset,yplusmin_val,yplusmax_val)
+      create_X(dict_val,X_choice)
+
+   indices = np.arange(len(dict_train_full["X"]))
+   X_train, X_test, y_train, y_test, index_train, index_test = train_test_split(dict_train_full["X"],dict_train_full["y"], indices,test_size=0.2,shuffle=True,random_state=42)
+   # create test index 
+   dict_test = {}
+   dict_train = {}
+   for key in dict_train_full:
+      if key not in [ "X", "y", "scaler_dudy", "scaler_dudy2","scaler_yplus","scaler_tau","scaler_L","scaler_quotient","scaler_k","scaler_dudy_pure", "scaler_u"]:
+         dict_test[key] = dict_train_full[key][index_test]
+         dict_train[key] = dict_train_full[key][index_train]
+
+   dict_test["X"] = X_test
+   dict_test["y"] = y_test
+   dict_train["X"] = X_train
+   dict_train["y"] = y_train
+
+   dict_test["scaler_dudy"] = dict_train_full["scaler_dudy"]
+   dict_test["scaler_dudy2"] = dict_train_full["scaler_dudy2"]
+   dict_test["scaler_yplus"] = dict_train_full["scaler_yplus"]
+   dict_test["scaler_tau"] = dict_train_full["scaler_tau"]
+   dict_test["scaler_L"] = dict_train_full["scaler_L"]
+   dict_test["scaler_quotient"] = dict_train_full["scaler_quotient"]
+   dict_test["scaler_k"] = dict_train_full["scaler_k"]
+   dict_test["scaler_dudu_pure"] = dict_train_full["scaler_dudy_pure"]
+   dict_test["scaler_u"] = dict_train_full["scaler_u"]
+
+   dict_train["scaler_dudy"] = dict_train_full["scaler_dudy"]
+   dict_train["scaler_dudy2"] = dict_train_full["scaler_dudy2"]
+   dict_train["scaler_yplus"] = dict_train_full["scaler_yplus"]
+   dict_train["scaler_tau"] = dict_train_full["scaler_tau"]
+   dict_train["scaler_L"] = dict_train_full["scaler_L"]
+   dict_train["scaler_quotient"] = dict_train_full["scaler_quotient"]
+   dict_train["scaler_k"] = dict_train_full["scaler_k"]
+   dict_train["scaler_dudu_pure"] = dict_train_full["scaler_dudy_pure"]
+   dict_train["scaler_u"] = dict_train_full["scaler_u"]
+
+   
+   if x_search:
+      variables = ["minmax_dudy_squared_scaled","minmax_dudy_inv_scaled","minmax_yplus","minmax_tau","minmax_L","minmax_quotient","minmax_k","minmax_dudy","minmax_u"]
+
+      #for variable in variables:
+         #print(len(dict_train_full[variable]))
+      #print(len(dict_train_full["minmax_yplus"]),len(dict_val["minmax_yplus"]))
+      Best, Types, Goodness = find_best_x(dict_train_full,dict_val,variables)
+      #print(Goodness)
+      print(f'Best combination: {Best}') 
+      print(f'Worst combination: {Types[np.argmin(Goodness)]}')
+
+      plt.figure()
+      plt.plot(dict_train_full["minmax_tau"],dict_train_full["minmax_tau"],label = 'Training data')
+      plt.plot(dict_val["minmax_tau"],dict_val["minmax_tau"],label = 'Validation data')
+      plt.legend()
+      plt.savefig(f'{savedir}worst_x.png')
+
+      plt.figure()
+      plt.plot(dict_train_full["minmax_yplus"],dict_train_full["minmax_k"],label = 'Training data')
+      plt.plot(dict_val["minmax_yplus"],dict_val["minmax_k"],label = 'Validation data')
+      plt.legend()
+      plt.savefig(f'{savedir}best_x.png')
+      input("Press Enter to continue: ")
+
+   '''
+   plt.figure()
+   plt.plot(dict_train_full["c0"],dict_train_full["yplus"],label = "Training y")
+   plt.plot(dict_val["c0"],dict_val["yplus"],label = "Validation y")
+   plt.xlabel("$c_0$")
+   plt.ylabel("$y^+$")
+   plt.legend()
+   plt.savefig(f'{savedir}c0-comparison.png')
+
+   plt.figure()
+   plt.plot(dict_train_full["c2"],dict_train_full["yplus"],label = "Training y")
+   plt.plot(dict_val["c2"],dict_val["yplus"],label = "Validation y")
+   plt.xlabel("$c_2$")
+   plt.ylabel("$y^+$")
+   plt.legend()
+   plt.savefig(f'{savedir}c2-comparison.png')
+   exit()
+   '''
+
+
+
+   ########################## 2*a11_DNS+a33_DNS
+
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.scatter(2*dict_train_full["a11"]+dict_train_full["a33"],dict_train_full["yplus"], marker="o", s=10, c="red", label="Cropped initial dataset")
+   plt.xlabel("$2a_{11}+a_{33}$")
+   plt.ylabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}2a11_DNS+a33_DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
+
+
+
+   ########################## k-bal
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.plot(dict_train_full["prod"],dict_train_full["yplus"], 'b-', label="$-\overline{u'v'} \partial U/\partial y$ Cropped Original")
+   ax1.plot(dict_train_full["eps"],dict_train_full["yplus"],'r--', label="dissipation")
+   #plt.axis([0,200,0,0.3])
+   plt.ylabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}prod-diss-DNS-dudy2-and-tau-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
+
+   # split the feature matrix and target vector into training and validation sets
+   # test_size=0.2 means we reserve 20% of the data for validation
+   # random_state=42 is a fixed seed for the random number generator, ensuring reproducibility
+   # random_state = randrange(100)
+
+
+
+   # convert the numpy arrays to PyTorch tensors with float32 data type
+   X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+   y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
+   X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
+   y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
+
+   # create PyTorch datasets and dataloaders for the training and validation sets
+   # a TensorDataset wraps the feature and target tensors into a single dataset
+   # a DataLoader loads the data in batches and shuffles the batches if shuffle=True
+   train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+   train_loader = DataLoader(train_dataset, shuffle=False, batch_size=my_batch_size)
+   test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+   test_loader = DataLoader(test_dataset, shuffle=False, batch_size=my_batch_size)
+
+   ########################## check
+
+
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+
+   Nx=len(X_train)
+
+   for k in range(0,Nx):
+      train_k = train_dataset[k]
+      yplus = dict_train["yplus"][k]
+      print ('k,k_train,c_0_train,yplus',k,train_dataset[k][1][0],yplus)
+   if k == 0: 
+      plt.plot(train_dataset[k][1][0],yplus, 'b+',label='Train dataset')
+   else:
+      plt.plot(train_dataset[k][1][0],yplus, 'b+')
+   Mx=len(X_test)
+   for k in range(0,Mx):
+      yplus = dict_test["yplus"][k]
+      if k == 0:
+         plt.plot(test_dataset[k][1][0],yplus, 'ro',label='Test dataset')
+      else:
+         plt.plot(test_dataset[k][1][0],yplus, 'ro')
+
+   plt.xlabel("$c_0$")
+   plt.ylabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}c0-and-cNN-train-and-test-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-ustar-and-nu-BL.png')
+
+   # Everything to this point makes sense and splits the dataset between test and train data
+
+   # Let's set up a neural network:
+   start_time = time.time()
+
+   # Instantiate a neural network
+   neural_net = ThePredictionMachine()
+
+   # Initialize the loss function
+   loss_fn = nn.MSELoss()
+
+   # Choose loss function, check out https://pytorch.org/docs/stable/optim.html for more info
+   # In this case we choose Stocastic Gradient Descent
+   optimizer = torch.optim.SGD(neural_net.parameters(), lr=learning_rate)
+
+
+   for t in range(epochs):
+      print(f"Epoch {t+1}\n-------------------------------")
+      train_loop(train_loader, neural_net, loss_fn, optimizer)
+      test_loss = test_loop(test_loader, neural_net, loss_fn)
+   print("Done!")
+
+   if not concatenate:
+      X_VAL_tensor = torch.tensor(dict_val["X"], dtype=torch.float32)
+   #preds_VAL = neural_net(X_VAL_tensor)
+
+
+   print(f"{'time ML: '}{time.time()-start_time:.2e}")
+
+   #transform from tensor to numpy
+
+
+   
+   
+
+
+   calc_dict(dict_test,X_test_tensor,neural_net,"Test_",test_loss)
+   if not concatenate:
+      calc_dict(dict_val,X_VAL_tensor,neural_net,"val_",test_loss)
+
+   ########################## du/dy vs k / epsilon
+   '''
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.plot(dict_val["k"]/dict_val["eps"],dict_val["dudy"],'b', label="Validation")
+   ax1.plot(dict_train_full["k"]/dict_train_full["eps"],dict_train_full["dudy"],'r--', label="Train")
+   plt.ylabel("$\partial_y u$")
+   plt.xlabel("$k/\epsilon$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}kepsdudy.png')
+
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.plot(dict_val["k"],dict_val["dudy_squared_scaled"],'b', label="Validation")
+   ax1.plot(dict_train_full["k"],dict_train_full["dudy_squared_scaled"],'r--', label="Train")
+   plt.ylabel("$(\partial_y u \\tau)^2$")
+   plt.xlabel("$k$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}kdudy.png')
+
+   fig1,ax1 = plt.subplots()
+   plt.subplots_adjust(left=0.20,bottom=0.20)
+   ax1.plot(dict_val["yplus"],dict_val["dudy_squared_scaled"],'b', label="Validation")
+   ax1.plot(dict_train_full["yplus"],dict_train_full["dudy_squared_scaled"],'r--', label="Train")
+   plt.ylabel("$(\partial_y u \\tau)^2$")
+   plt.xlabel("$y^+$")
+   plt.legend(loc="best",fontsize=12)
+   plt.savefig(f'{savedir}ydudy.png')
+   '''
+
+
+   filename = f'{savedir}model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.pth'
+   torch.save(neural_net, filename)
+   if not concatenate:
+      plot_dict(dict_val,X_VAL_tensor,"val_")
+   
+   plot_dict(dict_test,X_test_tensor,"test_")
+
+   print(f"{'total time: '}{time.time()-init_time:.2e}")
+
+if __name__ == "__main__":
+   main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplusmax_train,yplusmin_val,yplusmax_val,savedir,X_choice,conc,search)
