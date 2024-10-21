@@ -42,19 +42,19 @@ if __name__ == "__main__":
    trainset = 'CF5200' #CF5200
    valset = 'BL' #BL
 
-   yplusmin_train = 5
+   yplusmin_train = 2
    yplusmax_train = 1000
 
-   yplusmin_val = 5
+   yplusmin_val = 2
    yplusmax_val = 1000
 
-   X_choice = 'dudy' #'yplusk'
+   X_choice = 'yplusk' #'dudy' #'yplusk'
 
    conc = True
    search = False
 
    # Add unique run ID here
-   savedir = "renders/concatenation_test/"
+   savedir = "renders/concatenation_1-10/"
    os.makedirs(os.path.dirname(savedir), exist_ok=True)
 
 def loaddict(data_set,yplusmin,yplusmax):
@@ -232,21 +232,19 @@ class ThePredictionMachine(nn.Module):
       
       super(ThePredictionMachine, self).__init__()
 
+      #self.input   = nn.Linear(2, 50)
+      #self.hidden1 = nn.Linear(50, 50)
+      #self.hidden2 = nn.Linear(50, 2)
+
+      #self.input   = nn.Linear(2, 50)
+      #self.hidden1 = nn.Linear(50, 50)
+      #self.hidden2 = nn.Linear(50, 25)
+      #self.hidden3 = nn.Linear(25, 2)
       self.input   = nn.Linear(2, 50)
       self.hidden1 = nn.Linear(50, 50)
-      self.hidden2 = nn.Linear(50, 2)
-
-#        self.input   = nn.Linear(2, 50)
-#        self.hidden1 = nn.Linear(50, 50)
-#        self.hidden2 = nn.Linear(50, 25)
-#        self.hidden3 = nn.Linear(25, 2)
-
-#       self.input   = nn.Linear(2, 50)
-#       self.hidden1 = nn.Linear(50, 50)
-#       self.hidden2 = nn.Linear(50, 50)
-#       self.hidden3 = nn.Linear(50, 25)
-#       self.hidden4 = nn.Linear(25, 2)
-
+      self.hidden2 = nn.Linear(50, 50)
+      self.hidden3 = nn.Linear(50, 25)
+      self.hidden4 = nn.Linear(25, 2) 
 #       self.input   = nn.Linear(2, 50)
 #       self.hidden1 = nn.Linear(50, 50)
 #       self.hidden2 = nn.Linear(50, 50)
@@ -276,20 +274,20 @@ class ThePredictionMachine(nn.Module):
 
 
    def forward(self, x):
-      x = self.input(x)
-      x = self.hidden1(nn.functional.relu(x))
-      x = self.hidden2(nn.functional.relu(x))
+#      x = self.input(x)
+#      x = self.hidden1(nn.functional.relu(x))
+#      x = self.hidden2(nn.functional.relu(x))
 
 #        x = nn.functional.relu(self.input(x))
 #        x = nn.functional.relu(self.hidden1(x))
 #        x = nn.functional.relu(self.hidden2(x))
 #        x = self.hidden3(x)
 
-#       x = nn.functional.relu(self.input(x))
-#       x = nn.functional.relu(self.hidden1(x))
-#       x = nn.functional.relu(self.hidden2(x))
-#       x = nn.functional.relu(self.hidden3(x))
-#       x = self.hidden4(x)
+      x = nn.functional.relu(self.input(x))
+      x = nn.functional.relu(self.hidden1(x))
+      x = nn.functional.relu(self.hidden2(x))
+      x = nn.functional.relu(self.hidden3(x))
+      x = self.hidden4(x)
 
 #       x = nn.functional.relu(self.input(x))
 #       x = nn.functional.relu(self.hidden1(x))
@@ -422,7 +420,7 @@ def plot_dict(dict_temp,X_tens,typelabel):
    plt.scatter(dict_temp["c0"],dict_temp["dudy"]**2, c ='b', marker ='o',label='target')
    plt.scatter(dict_temp["c0_NN"],dict_temp["dudy"]**2,  c='r', marker='+',label='NN')   
    plt.xlabel("$c_0$")
-   plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
+   plt.ylabel(r"$\left(\partial U^+/\partial y^+\right)^2$")
    plt.legend(loc="best",fontsize=12)
    plt.savefig(f'{savedir}{typelabel}c0-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units.png')
 
@@ -433,7 +431,7 @@ def plot_dict(dict_temp,X_tens,typelabel):
    plt.scatter(dict_temp["c2"],dict_temp["dudy"]**2,c ='b', marker ='o',label='target')
    plt.scatter(dict_temp["c2_NN"],dict_temp["dudy"]**2,  c='r', marker='+',label='NN')
    plt.xlabel("$c_2$")
-   plt.ylabel(r"$\left(\partial U/\partial y\right)^2$")
+   plt.ylabel(r"$\left(\partial U^+/\partial y^+\right)^2$")
    plt.legend(loc="best",fontsize=12)
    plt.savefig(f'{savedir}{typelabel}c2-dudu2-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
 
@@ -499,10 +497,11 @@ def plot_dict(dict_temp,X_tens,typelabel):
    fig1,ax1 = plt.subplots()
    plt.subplots_adjust(left=0.20,bottom=0.20)
    ax1.scatter(dict_temp["dudy_org"]*dict_temp["dudy_org"],dict_temp["yplus"],c='b')
-   plt.xlabel(r"$\left(\partial U/\partial y\right)^{-1} dudy$")
+   plt.xlabel(r"$\left(\partial U^+/\partial y^+\right)^{-1} dudy$")
    plt.ylabel("$y^+$")
    plt.savefig(f'{savedir}{typelabel}dudy-times-dudy-dudy-and-dudy-squared-dudy2-and-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.png')
-
+   
+   plt.close()
 
 def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplusmax_train,yplusmin_val,yplusmax_val,savedir,X_choice,concatenate = False,x_search = False):
 
@@ -521,6 +520,8 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
          if key in dict_2:
             dict_train_full[key] = np.append(dict_1[key][one_inds],dict_2[key][two_inds])
       create_X(dict_train_full,X_choice)
+      create_X(dict_1,X_choice)
+      create_X(dict_2,X_choice)
 
    else:
       dict_train_full = loaddict(trainset,yplusmin_train,yplusmax_train)
@@ -706,6 +707,10 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
 
    if not concatenate:
       X_VAL_tensor = torch.tensor(dict_val["X"], dtype=torch.float32)
+   else:
+      X1_tensor = torch.tensor(dict_1["X"], dtype=torch.float32)
+      X2_tensor = torch.tensor(dict_2["X"], dtype=torch.float32)
+
    #preds_VAL = neural_net(X_VAL_tensor)
 
 
@@ -721,6 +726,11 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
    calc_dict(dict_test,X_test_tensor,neural_net,"Test_",test_loss)
    if not concatenate:
       calc_dict(dict_val,X_VAL_tensor,neural_net,"val_",test_loss)
+   else:
+      calc_dict(dict_1,X1_tensor,neural_net,"val_",test_loss)
+      calc_dict(dict_2,X2_tensor,neural_net,"val_",test_loss)
+
+
 
    ########################## du/dy vs k / epsilon
    '''
@@ -757,6 +767,10 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
    torch.save(neural_net, filename)
    if not concatenate:
       plot_dict(dict_val,X_VAL_tensor,"val_")
+   else: 
+      plot_dict(dict_1,X1_tensor,"val1_")
+      plot_dict(dict_2,X2_tensor,"val2_")
+
    
    plot_dict(dict_test,X_test_tensor,"test_")
 
