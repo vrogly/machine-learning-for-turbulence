@@ -177,6 +177,8 @@ def create_X(dict_temp,X_choice):
    dict_temp["minmax_k"] = dict_temp["scaler_k"].fit_transform(dict_temp["k"].reshape(-1,1))[:,0]
    dict_temp["minmax_dudy"] = dict_temp["scaler_dudy_pure"].fit_transform(dict_temp["dudy"].reshape(-1,1))[:,0]
    dict_temp["minmax_u"] = dict_temp["scaler_u"].fit_transform(dict_temp["u"].reshape(-1,1))[:,0]
+   dict_temp["minmax_yplus_squared"] = MinMaxScaler().fit_transform(dict_temp["yplus"].reshape(-1,1)**2)[:,0]
+   dict_temp["minmax_k_invsquared"] = MinMaxScaler().fit_transform(dict_temp["k"].reshape(-1,1)**(-2))[:,0]
 
    X2=np.zeros((len(dict_temp["dudy"]),2))
    X2[:,0] = dict_temp["minmax_k"]
@@ -199,6 +201,11 @@ def create_X(dict_temp,X_choice):
       X4[:,0] = dict_temp["yplus2eps2"]
       X4[:,1] = dict_temp["k1eps-2"]
       dict_temp["X"] = X4
+   elif X_choice == 'yplusk2':
+      X5=np.zeros((len(dict_temp["dudy"]),2))
+      X5[:,0] = dict_temp["minmax_yplus_squared"]
+      X5[:,1] = dict_temp["minmax_k_invsquared"]
+      dict_temp["X"] = X5
    
    dict_temp["prod"] = -dict_temp["uv"]*dict_temp["dudy"]
 
@@ -385,7 +392,6 @@ def test_loop(dataloader, model, loss_fn):
 def calc_dict(dict_temp, X_tens, model,typelabel,test_loss,savedir):
    preds = model(X_tens)
    c_NN = preds.detach().numpy()
-   #c_NN_old = c_NN
 
    dict_temp["c0_NN"] = c_NN[:,0]
    dict_temp["c2_NN"] =c_NN[:,1]
@@ -535,8 +541,6 @@ def plot_dict(dict_temp,X_tens,typelabel,savedir):
 def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplusmax_train,yplusmin_val,yplusmax_val,savedir,X_choice,concatenate = False,x_search = False):
    os.makedirs(os.path.dirname(savedir), exist_ok=True)
    init_time = time.time()
-
-   # Load data for relevant y+ interval
    
    if concatenate:
       dict_1 = loaddict(trainset,yplusmin_train,yplusmax_train)
@@ -604,11 +608,7 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
    if x_search:
       variables = ["minmax_dudy_squared_scaled","minmax_dudy_inv_scaled","minmax_yplus","minmax_tau","minmax_L","minmax_quotient","minmax_k","minmax_dudy","minmax_u"]
 
-      #for variable in variables:
-         #print(len(dict_train_full[variable]))
-      #print(len(dict_train_full["minmax_yplus"]),len(dict_val["minmax_yplus"]))
       Best, Types, Goodness = find_best_x(dict_train_full,dict_val,variables)
-      #print(Goodness)
       print(f'Best combination: {Best}') 
       print(f'Worst combination: {Types[np.argmin(Goodness)]}')
 
@@ -619,10 +619,10 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
       plt.savefig(f'{savedir}worst_x.png')
 
       plt.figure()
-      plt.plot(dict_train_full["minmax_yplus"],dict_train_full["minmax_k"],label = 'Channel flow')
-      plt.plot(dict_val["minmax_yplus"],dict_val["minmax_k"],label = 'Boundary layer')
-      plt.xlabel('$y^+$')
-      plt.ylabel('k^+')
+      plt.plot(dict_train_full["minmax_yplus_squared"],dict_train_full["minmax_k_invsquared"],label = 'Channel flow')
+      plt.plot(dict_val["minmax_yplus_squared"],dict_val["minmax_k_invsquared"],label = 'Boundary layer')
+      plt.xlabel('$y^{+2}$')
+      plt.ylabel('$k^{+-2}$')
       plt.legend()
       plt.savefig(f'{savedir}best_x.png')
 
@@ -646,6 +646,8 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
       plt.plot(dict_train_full["dudy-2yplus-2"],dict_train_full["yplus2k-2"],label = 'Channel flow')
       plt.plot(dict_val["dudy-2yplus-2"],dict_val["yplus2k-2"],label = 'Boundary layer')
       plt.legend()
+      plt.xlabel('$(\\partial u^+/\\partial y^+ \\cdot y^+)^2$')
+      plt.ylabel('$(k^+/y^+)^2$')
       plt.savefig(f'{savedir}bra_enligt_viktor.png')
 
       plt.figure()
@@ -662,28 +664,6 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
 
 
       input("Press Enter to continue: ")
-
-
-   '''
-   plt.figure()
-   plt.plot(dict_train_full["c0"],dict_train_full["yplus"],label = "Training y")
-   plt.plot(dict_val["c0"],dict_val["yplus"],label = "Validation y")
-   plt.xlabel("$c_0$")
-   plt.ylabel("$y^+$")
-   plt.legend()
-   plt.savefig(f'{savedir}c0-comparison.png')
-
-   plt.figure()
-   plt.plot(dict_train_full["c2"],dict_train_full["yplus"],label = "Training y")
-   plt.plot(dict_val["c2"],dict_val["yplus"],label = "Validation y")
-   plt.xlabel("$c_2$")
-   plt.ylabel("$y^+$")
-   plt.legend()
-   plt.savefig(f'{savedir}c2-comparison.png')
-   exit()
-   '''
-
-
 
    ########################## 2*a11_DNS+a33_DNS
 
@@ -727,8 +707,6 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
    train_loader = DataLoader(train_dataset, shuffle=False, batch_size=my_batch_size)
    test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
    test_loader = DataLoader(test_dataset, shuffle=False, batch_size=my_batch_size)
-
-   ########################## check
 
 
    fig1,ax1 = plt.subplots()
@@ -785,17 +763,7 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
       X1_tensor = torch.tensor(dict_1["X"], dtype=torch.float32)
       X2_tensor = torch.tensor(dict_2["X"], dtype=torch.float32)
 
-   #preds_VAL = neural_net(X_VAL_tensor)
-
-
    print(f"{'time ML: '}{time.time()-start_time:.2e}")
-
-   #transform from tensor to numpy
-
-
-   
-   
-
 
    calc_dict(dict_test,X_test_tensor,neural_net,"Test_",test_loss,savedir)
    if not concatenate:
@@ -804,37 +772,6 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
       calc_dict(dict_1,X1_tensor,neural_net,"val_",test_loss,savedir)
       calc_dict(dict_2,X2_tensor,neural_net,"val_",test_loss,savedir)
 
-
-
-   ########################## du/dy vs k / epsilon
-   '''
-   fig1,ax1 = plt.subplots()
-   plt.subplots_adjust(left=0.20,bottom=0.20)
-   ax1.plot(dict_val["k"]/dict_val["eps"],dict_val["dudy"],'b', label="Validation")
-   ax1.plot(dict_train_full["k"]/dict_train_full["eps"],dict_train_full["dudy"],'r--', label="Train")
-   plt.ylabel("$\partial_y u$")
-   plt.xlabel("$k/\epsilon$")
-   plt.legend(loc="best",fontsize=12)
-   plt.savefig(f'{savedir}kepsdudy.png')
-
-   fig1,ax1 = plt.subplots()
-   plt.subplots_adjust(left=0.20,bottom=0.20)
-   ax1.plot(dict_val["k"],dict_val["dudy_squared_scaled"],'b', label="Validation")
-   ax1.plot(dict_train_full["k"],dict_train_full["dudy_squared_scaled"],'r--', label="Train")
-   plt.ylabel("$(\partial_y u \\tau)^2$")
-   plt.xlabel("$k$")
-   plt.legend(loc="best",fontsize=12)
-   plt.savefig(f'{savedir}kdudy.png')
-
-   fig1,ax1 = plt.subplots()
-   plt.subplots_adjust(left=0.20,bottom=0.20)
-   ax1.plot(dict_val["yplus"],dict_val["dudy_squared_scaled"],'b', label="Validation")
-   ax1.plot(dict_train_full["yplus"],dict_train_full["dudy_squared_scaled"],'r--', label="Train")
-   plt.ylabel("$(\partial_y u \\tau)^2$")
-   plt.xlabel("$y^+$")
-   plt.legend(loc="best",fontsize=12)
-   plt.savefig(f'{savedir}ydudy.png')
-   '''
 
 
    filename = f'{savedir}model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.pth'

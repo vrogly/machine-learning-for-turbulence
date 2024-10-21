@@ -106,8 +106,70 @@ run8["concatenate"] = True
 run8["search"] = False
 run8["dir"] = "renders/bästa_utan_dudy_enligt_viktor_Both/"
 
+run9 = {}
+run9["trainset"] = 'BL'
+run9["valset"] = 'CF5200'
+run9["yplusmin_train"] = 5
+run9["yplusmax_train"] = 1000
+run9["yplusmin_val"] = 5
+run9["yplusmax_val"] = 1000
+run9["X"] = 'dudy-2yplus-2yplus2k-2'
+run9["concatenate"] = False
+run9["search"] = False
+run9["dir"] = "renders/bra_enligt_viktor_BL-CF/"
+
+run10 = {}
+run10["trainset"] = 'CF5200'
+run10["valset"] = 'BL'
+run10["yplusmin_train"] = 5
+run10["yplusmax_train"] = 1000
+run10["yplusmin_val"] = 5
+run10["yplusmax_val"] = 1000
+run10["X"] = 'dudy-2yplus-2yplus2k-2'
+run10["concatenate"] = False
+run10["search"] = False
+run10["dir"] = "renders/bra_enligt_viktor_CF-BL/"
+
+run13 = {}
+run13["trainset"] = 'CF5200'
+run13["valset"] = 'BL'
+run13["yplusmin_train"] = 5
+run13["yplusmax_train"] = 1000
+run13["yplusmin_val"] = 5
+run13["yplusmax_val"] = 1000
+run13["X"] = 'yplusk2'
+run13["concatenate"] = False
+run13["search"] = False
+run13["dir"] = "renders/xyplusk2_CF-BL/"
+
+run14 = {}
+run14["trainset"] = 'BL'
+run14["valset"] = 'CF5200'
+run14["yplusmin_train"] = 5
+run14["yplusmax_train"] = 1000
+run14["yplusmin_val"] = 5
+run14["yplusmax_val"] = 1000
+run14["X"] = 'yplusk2'
+run14["concatenate"] = False
+run14["search"] = False
+run14["dir"] = "renders/xyplusk2_BL-CF/"
+
+run15 = {}
+run15["trainset"] = 'BL'
+run15["valset"] = 'CF5200'
+run15["yplusmin_train"] = 5
+run15["yplusmax_train"] = 1000
+run15["yplusmin_val"] = 5
+run15["yplusmax_val"] = 1000
+run15["X"] = 'yplusk2'
+run15["concatenate"] = True
+run15["search"] = False
+run15["dir"] = "renders/xyplusk2_Both/"
+
 #runs = [run1,run2,run3,run4,run5,run6]
-runs = [run7,run8]
+#runs = [run7,run8]
+#runs = [run9,run10]
+runs = [run13,run14,run15]
 
 for run in runs:
     main(learning_rate,my_batch_size,epochs,run["trainset"],run["valset"],run["yplusmin_train"],
