@@ -42,19 +42,19 @@ if __name__ == "__main__":
    trainset = 'CF5200' #CF5200
    valset = 'BL' #BL
 
-   yplusmin_train = 2
+   yplusmin_train = 5
    yplusmax_train = 1000
 
-   yplusmin_val = 2
+   yplusmin_val = 5
    yplusmax_val = 1000
 
    X_choice = 'yplusk' #'dudy' #'yplusk'
 
-   conc = True
-   search = False
+   conc = False
+   search = True
 
    # Add unique run ID here
-   savedir = "renders/concatenation_1-10/"
+   savedir = "renders/pass/"
 
 def loaddict(data_set,yplusmin,yplusmax):
    dict_temp = {}
@@ -352,7 +352,7 @@ def test_loop(dataloader, model, loss_fn):
 
    return test_loss
 
-def calc_dict(dict_temp, X_tens, model,typelabel,test_loss):
+def calc_dict(dict_temp, X_tens, model,typelabel,test_loss,savedir):
    preds = model(X_tens)
    c_NN = preds.detach().numpy()
    #c_NN_old = c_NN
@@ -382,7 +382,7 @@ def calc_dict(dict_temp, X_tens, model,typelabel,test_loss):
    #return dict_temp
 
 
-def plot_dict(dict_temp,X_tens,typelabel):
+def plot_dict(dict_temp,X_tens,typelabel,savedir):
    dump(dict_temp["scaler_dudy2"],f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
    dump(dict_temp["scaler_dudy"],f'{savedir}{typelabel}model-channel-DNS-dudy-and-dudy2_scaler-dudy-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.bin')
 
@@ -583,11 +583,32 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
       plt.savefig(f'{savedir}worst_x.png')
 
       plt.figure()
-      plt.plot(dict_train_full["minmax_yplus"],dict_train_full["minmax_k"],label = 'Training data')
-      plt.plot(dict_val["minmax_yplus"],dict_val["minmax_k"],label = 'Validation data')
+      plt.plot(dict_train_full["minmax_yplus"],dict_train_full["minmax_k"],label = 'Channel flow')
+      plt.plot(dict_val["minmax_yplus"],dict_val["minmax_k"],label = 'Boundary layer')
+      plt.xlabel('$y^+$')
+      plt.ylabel('k^+')
       plt.legend()
       plt.savefig(f'{savedir}best_x.png')
+
+      plt.figure()
+      plt.plot(dict_train_full["minmax_dudy_squared_scaled"],dict_train_full["minmax_dudy_inv_scaled"],label = 'Channel flow')
+      plt.plot(dict_val["minmax_dudy_squared_scaled"],dict_val["minmax_dudy_inv_scaled"],label = 'Boundary layer')
+      plt.legend()
+      plt.xlabel('$(\\partial U^+/\\partial y^+)^2\\tau^2$')
+      plt.ylabel('$(\\partial U^+/\\partial y^+)^{-1}\\tau$')
+      plt.savefig(f'{savedir}original_x.png')
+
+      plt.figure()
+      plt.plot(dict_train_full["c0"],dict_train_full["c2"],label = 'Channel flow')
+      plt.plot(dict_val["c0"],dict_val["c2"],label = 'Boundary layer')
+      plt.legend()
+      plt.xlabel('$c_0$')
+      plt.ylabel('$c_2$')
+      plt.savefig(f'{savedir}c0-c2.png')
+
+
       input("Press Enter to continue: ")
+
 
    '''
    plt.figure()
@@ -665,11 +686,11 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
       train_k = train_dataset[k]
       yplus = dict_train["yplus"][k]
       print ('k,k_train,c_0_train,yplus',k,train_dataset[k][1][0],yplus)
-   if k == 0: 
-      plt.plot(train_dataset[k][1][0],yplus, 'b+',label='Train dataset')
-   else:
-      plt.plot(train_dataset[k][1][0],yplus, 'b+')
-   Mx=len(X_test)
+      if k == 0: 
+         plt.plot(train_dataset[k][1][0],yplus, 'b+',label='Train dataset')
+      else:
+         plt.plot(train_dataset[k][1][0],yplus, 'b+')
+      Mx=len(X_test)
    for k in range(0,Mx):
       yplus = dict_test["yplus"][k]
       if k == 0:
@@ -722,12 +743,12 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
    
 
 
-   calc_dict(dict_test,X_test_tensor,neural_net,"Test_",test_loss)
+   calc_dict(dict_test,X_test_tensor,neural_net,"Test_",test_loss,savedir)
    if not concatenate:
-      calc_dict(dict_val,X_VAL_tensor,neural_net,"val_",test_loss)
+      calc_dict(dict_val,X_VAL_tensor,neural_net,"val_",test_loss,savedir)
    else:
-      calc_dict(dict_1,X1_tensor,neural_net,"val_",test_loss)
-      calc_dict(dict_2,X2_tensor,neural_net,"val_",test_loss)
+      calc_dict(dict_1,X1_tensor,neural_net,"val_",test_loss,savedir)
+      calc_dict(dict_2,X2_tensor,neural_net,"val_",test_loss,savedir)
 
 
 
@@ -765,13 +786,13 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
    filename = f'{savedir}model-channel-DNS-dudy-and-dudy2-2-hidden-9-yplus-2200-dudy-min-eq.4e-4-scale-with-k-eps-units-BL.pth'
    torch.save(neural_net, filename)
    if not concatenate:
-      plot_dict(dict_val,X_VAL_tensor,"val_")
+      plot_dict(dict_val,X_VAL_tensor,"val_",savedir)
    else: 
-      plot_dict(dict_1,X1_tensor,"val1_")
-      plot_dict(dict_2,X2_tensor,"val2_")
+      plot_dict(dict_1,X1_tensor,"val1_",savedir)
+      plot_dict(dict_2,X2_tensor,"val2_",savedir)
 
    
-   plot_dict(dict_test,X_test_tensor,"test_")
+   plot_dict(dict_test,X_test_tensor,"test_",savedir)
 
    print(f"{'total time: '}{time.time()-init_time:.2e}")
 
