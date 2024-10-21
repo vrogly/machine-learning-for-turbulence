@@ -81,7 +81,33 @@ run6["concatenate"] = True
 run6["search"] = False
 run6["dir"] = "renders/xdudy_Both/"
 
-runs = [run1,run2,run3,run4,run5,run6]
+# Viktor's ideas
+run7 = {}
+run7["trainset"] = 'BL'
+run7["valset"] = 'CF5200'
+run7["yplusmin_train"] = 5
+run7["yplusmax_train"] = 1000
+run7["yplusmin_val"] = 5
+run7["yplusmax_val"] = 1000
+run7["X"] = 'dudy-2yplus-2yplus2k-2'
+run7["concatenate"] = True
+run7["search"] = False
+run7["dir"] = "renders/bra_enligt_viktor_Both/"
+
+run8 = {}
+run8["trainset"] = 'BL'
+run8["valset"] = 'CF5200'
+run8["yplusmin_train"] = 5
+run8["yplusmax_train"] = 1000
+run8["yplusmin_val"] = 5
+run8["yplusmax_val"] = 1000
+run8["X"] = 'yplus2eps2k1eps-2'
+run8["concatenate"] = True
+run8["search"] = False
+run8["dir"] = "renders/bästa_utan_dudy_enligt_viktor_Both/"
+
+#runs = [run1,run2,run3,run4,run5,run6]
+runs = [run7,run8]
 
 for run in runs:
     main(learning_rate,my_batch_size,epochs,run["trainset"],run["valset"],run["yplusmin_train"],

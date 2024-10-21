@@ -182,12 +182,23 @@ def create_X(dict_temp,X_choice):
    X2[:,0] = dict_temp["minmax_k"]
    X2[:,1] = dict_temp["minmax_yplus"]
 
+   
 
    dict_temp["y"] = c.transpose()
    if X_choice == 'dudy':
       dict_temp["X"] = X
    elif X_choice == 'yplusk':
       dict_temp["X"] = X2
+   elif X_choice == 'dudy-2yplus-2yplus2k-2':
+      X3=np.zeros((len(dict_temp["dudy"]),2))
+      X3[:,0] = dict_temp["dudy-2yplus-2"]
+      X3[:,1] = dict_temp["yplus2k-2"]
+      dict_temp["X"] = X3
+   elif X_choice == 'yplus2eps2k1eps-2':
+      X4=np.zeros((len(dict_temp["dudy"]),2))
+      X4[:,0] = dict_temp["yplus2eps2"]
+      X4[:,1] = dict_temp["k1eps-2"]
+      dict_temp["X"] = X4
    
    dict_temp["prod"] = -dict_temp["uv"]*dict_temp["dudy"]
 
@@ -630,7 +641,7 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
       plt.xlabel('$c_0$')
       plt.ylabel('$c_2$')
       plt.savefig(f'{savedir}c0-c2.png')
-
+      
       plt.figure()
       plt.plot(dict_train_full["dudy-2yplus-2"],dict_train_full["yplus2k-2"],label = 'Channel flow')
       plt.plot(dict_val["dudy-2yplus-2"],dict_val["yplus2k-2"],label = 'Boundary layer')
