@@ -55,7 +55,6 @@ if __name__ == "__main__":
 
    # Add unique run ID here
    savedir = "renders/concatenation_1-10/"
-   os.makedirs(os.path.dirname(savedir), exist_ok=True)
 
 def loaddict(data_set,yplusmin,yplusmax):
    dict_temp = {}
@@ -504,7 +503,7 @@ def plot_dict(dict_temp,X_tens,typelabel):
    plt.close()
 
 def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplusmax_train,yplusmin_val,yplusmax_val,savedir,X_choice,concatenate = False,x_search = False):
-
+   os.makedirs(os.path.dirname(savedir), exist_ok=True)
    init_time = time.time()
 
    # Load data for relevant y+ interval
