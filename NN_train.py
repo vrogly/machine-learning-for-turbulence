@@ -16,6 +16,7 @@ from sklearn.preprocessing import MinMaxScaler
 from random import randrange
 from random import sample
 from joblib import dump, load
+import itertools
 
 plt.rcParams.update({"font.size": 12})
 plt.rcParams["mathtext.fontset"] = "stix"
@@ -189,6 +190,24 @@ def create_X(dict_temp,X_choice):
       dict_temp["X"] = X2
    
    dict_temp["prod"] = -dict_temp["uv"]*dict_temp["dudy"]
+
+def generate_all_xcombs(dict_temp):
+   variables = ["dudy","yplus","k","eps","u"]
+   orthogonal_combinations = list(itertools.combinations(variables, 2))
+   exponents = [-2,-1,1,2]
+   varcombs = []
+
+   for comb in orthogonal_combinations:
+      for X1_exp in exponents:
+         for X2_exp in exponents:
+            colname = f"{comb[0]}{X1_exp}{comb[1]}{X2_exp}"
+            temp_col = np.array((dict_temp[comb[0]]**X1_exp) * (dict_temp[comb[1]]**X2_exp))
+
+            scaler= MinMaxScaler()
+
+            dict_temp[colname] = scaler.fit_transform(temp_col.reshape(-1,1))[:,0]
+
+            varcombs += [colname]
 
 
 def delta_metric(dataset1:dict,dataset2:dict,x1:str,x2:str):
@@ -518,15 +537,21 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
       for key in dict_1:
          if key in dict_2:
             dict_train_full[key] = np.append(dict_1[key][one_inds],dict_2[key][two_inds])
+      generate_all_xcombs(dict_train_full)
+      generate_all_xcombs(dict_1)
+      generate_all_xcombs(dict_2)
+
       create_X(dict_train_full,X_choice)
       create_X(dict_1,X_choice)
       create_X(dict_2,X_choice)
 
    else:
       dict_train_full = loaddict(trainset,yplusmin_train,yplusmax_train)
+      generate_all_xcombs(dict_train_full)
       create_X(dict_train_full,X_choice)
 
       dict_val = loaddict(valset,yplusmin_val,yplusmax_val)
+      generate_all_xcombs(dict_val)
       create_X(dict_val,X_choice)
 
    indices = np.arange(len(dict_train_full["X"]))
@@ -605,6 +630,24 @@ def main(learning_rate,my_batch_size,epochs,trainset,valset,yplusmin_train,yplus
       plt.xlabel('$c_0$')
       plt.ylabel('$c_2$')
       plt.savefig(f'{savedir}c0-c2.png')
+
+      plt.figure()
+      plt.plot(dict_train_full["dudy-2yplus-2"],dict_train_full["yplus2k-2"],label = 'Channel flow')
+      plt.plot(dict_val["dudy-2yplus-2"],dict_val["yplus2k-2"],label = 'Boundary layer')
+      plt.legend()
+      plt.savefig(f'{savedir}bra_enligt_viktor.png')
+
+      plt.figure()
+      plt.plot(dict_train_full["yplus-1k-2"],dict_train_full["k-2eps1"], label = 'Channel flow')
+      plt.plot(dict_val["yplus-1k-2"],dict_val["k-2eps1"], label = 'Channel flow')
+      plt.legend()
+      plt.savefig(f'{savedir}dålig_enligt_viktor.png')
+
+      plt.figure()
+      plt.plot(dict_train_full["yplus2eps2"],dict_train_full["k1eps-2"],label= 'Channel flow')
+      plt.plot(dict_val["yplus2eps2"],dict_val["k1eps-2"],label= 'Boundary layer')
+      plt.legend()
+      plt.savefig(f'{savedir}bästa_utan_dudy_enligt_viktor.png')
 
 
       input("Press Enter to continue: ")
